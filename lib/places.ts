@@ -1,9 +1,14 @@
 export type Surface = "PAVED" | "PACKED GRAVEL";
+export type Kind = "lake" | "woods" | "town" | "history";
+
+/** Signed town pins: murals and river-town streets. Ritter is a city park until signed. */
+export const SIGNED_TOWN_IDS = ["ashland-floodwall", "portsmouth-murals"] as const;
 
 export type Place = {
   id: string;
   title: string;
   surface: Surface;
+  kind?: Kind;
   milesFromHome: number;
   minutesOut: number;
   onSiteMinutes: number;
