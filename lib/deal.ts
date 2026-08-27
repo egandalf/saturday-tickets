@@ -12,11 +12,15 @@ export type Ticket = {
   credit?: string;
 };
 
+export const MOODS = ["lake", "woods", "town", "history"] as const;
+export type Mood = (typeof MOODS)[number];
+
 export type RetrieveReport = {
   source: "atlas" | "seed";
   via: "vector" | "find" | null;
   operator: "$vectorSearch" | "find" | "seed";
   atlas: { n: number; withCredit: number } | null;
+  mood: Mood | null;
 };
 
 export type DealResult = {
@@ -26,6 +30,25 @@ export type DealResult = {
 
 const HOME_RADIUS_MILES = 150;
 const DUSK_MINUTES = 19 * 60 + 30;
+const FAMILY_QUERY =
+  "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
+
+const NUDGE: Record<Mood, string> = {
+  lake: "Prefer a lake or shore Saturday.",
+  woods: "Prefer woods, forest, trail, or ridge.",
+  town: "Prefer a town, murals, or park in town.",
+  history: "Prefer history: furnace, mound, or covered bridge.",
+};
+
+export function parseMood(value: string | null): Mood | undefined {
+  const s = value?.trim().toLowerCase();
+  return MOODS.includes(s as Mood) ? (s as Mood) : undefined;
+}
+
+function queryFor(mood?: Mood): string {
+  if (!mood) return FAMILY_QUERY;
+  return `${FAMILY_QUERY} ${NUDGE[mood]}`;
+}
 
 function loadNotes(): string[] {
   const notes: string[] = [];
@@ -43,27 +66,30 @@ function coverage(places: Place[]): { n: number; withCredit: number } {
 function reportOf(
   retrieved: { source: "atlas" | "seed"; via?: "vector" | "find" },
   places: Place[],
+  mood?: Mood,
 ): RetrieveReport {
   const atlas = retrieved.source === "atlas" ? coverage(places) : null;
+  const moodValue = mood ?? null;
   if (retrieved.via === "vector") {
-    return { source: "atlas", via: "vector", operator: "$vectorSearch", atlas };
+    return { source: "atlas", via: "vector", operator: "$vectorSearch", atlas, mood: moodValue };
   }
   if (retrieved.source === "atlas") {
-    return { source: "atlas", via: "find", operator: "find", atlas };
+    return { source: "atlas", via: "find", operator: "find", atlas, mood: moodValue };
   }
-  return { source: "seed", via: null, operator: "seed", atlas: null };
+  return { source: "seed", via: null, operator: "seed", atlas: null, mood: moodValue };
 }
 
-async function retrieve(): Promise<{
+async function retrieve(mood?: Mood): Promise<{
   places: Place[];
   source: "atlas" | "seed";
   via?: "vector" | "find";
   reason?: string;
 }> {
-  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES);
+  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, queryFor(mood));
   if (fromAtlas && fromAtlas.places.length) {
     log.line("retrieve.atlas", {
       via: fromAtlas.via,
+      mood: mood ?? "none",
       count: fromAtlas.places.length,
       withCredit: fromAtlas.places.filter((p) => Boolean(p.credit)).length,
       ids: fromAtlas.places.map((p) => p.id),
@@ -76,6 +102,7 @@ async function retrieve(): Promise<{
   const reason = fromAtlas ? "atlas places empty" : "atlas unavailable";
   log.line("retrieve.seed", {
     reason,
+    mood: mood ?? "none",
     count: seed.length,
     ids: seed.map((p) => p.id),
     radius: HOME_RADIUS_MILES,
@@ -202,13 +229,13 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   return ids.length ? ids : null;
 }
 
-export async function dealSaturday(): Promise<DealResult> {
+export async function dealSaturday(mood?: Mood): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
-    log.line("deal.start", { home: "41144", radius: HOME_RADIUS_MILES });
+    log.line("deal.start", { home: "41144", radius: HOME_RADIUS_MILES, mood: mood ?? "none" });
     loadNotes();
-    const retrieved = await retrieve();
-    const retrievePath = reportOf(retrieved, retrieved.places);
+    const retrieved = await retrieve(mood);
+    const retrievePath = reportOf(retrieved, retrieved.places, mood);
     const filtered = hardFilter(retrieved.places);
     const ids = await rankWithGemini(filtered);
     let tickets: Ticket[];
@@ -238,6 +265,7 @@ export async function dealSaturday(): Promise<DealResult> {
         source: retrievePath.source,
         via: retrievePath.via,
         operator: retrievePath.operator,
+        mood: retrievePath.mood,
         atlas: retrievePath.atlas,
         count: tickets.length,
       },
