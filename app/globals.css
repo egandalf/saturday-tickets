@@ -1,0 +1,101 @@
+:root {
+  --graphite: #1c1c1c;
+  --graphite-card: #262626;
+  --chalk: #f2efe6;
+  --solar: #ffac00;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--graphite);
+  color: var(--chalk);
+  font-family: "Source Sans 3", system-ui, sans-serif;
+}
+
+body {
+  padding: 32px 20px 64px;
+}
+
+h1, h2 {
+  font-family: "Patrick Hand", cursive;
+  font-weight: 400;
+  margin: 0;
+}
+
+.kicker {
+  color: var(--solar);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.deck {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.deck header {
+  margin-bottom: 28px;
+}
+
+.deck h1 {
+  font-size: 2.4rem;
+  line-height: 1.1;
+}
+
+.deck p.lede {
+  max-width: 36rem;
+  opacity: 0.8;
+  margin: 10px 0 0;
+}
+
+.tickets {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.ticket {
+  background: var(--graphite-card);
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.photo {
+  height: 160px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.45)),
+    repeating-linear-gradient(135deg, #2e2e2e 0 12px, #333 12px 24px);
+}
+
+.ticket-body {
+  padding: 16px 16px 18px;
+}
+
+.ticket h2 {
+  font-size: 1.7rem;
+  margin-bottom: 10px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border: 1px solid var(--solar);
+  color: var(--solar);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+}
