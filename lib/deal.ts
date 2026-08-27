@@ -1,6 +1,7 @@
 import { log, takeCalls, withDeal } from "./log";
 import { loadPlacesFromAtlas } from "./mongo";
 import { PLACES, SIGNED_TOWN_IDS, type Place } from "./places";
+import { saturdaySunset, type SaturdaySunset } from "./sun";
 import type { DealCall } from "./trace";
 
 export type { DealCall };
@@ -36,7 +37,6 @@ export type DealResult = {
 };
 
 const HOME_RADIUS_MILES = 150;
-const DUSK_MINUTES = 19 * 60 + 30;
 const SATURDAY_START = 10 * 60;
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
@@ -119,22 +119,22 @@ async function retrieve(mood?: Mood): Promise<{
   return { places: seed, source: "seed", reason };
 }
 
-function rejectReason(p: Place, saturdayStartMinutes: number): string | null {
+function rejectReason(p: Place, saturdayStartMinutes: number, duskMinutes: number): string | null {
   if (!p.photo) return "no photo";
   if (p.surface !== "PAVED" && p.surface !== "PACKED GRAVEL") return `surface ${p.surface}`;
   if (!p.turnaround) return "no turnaround";
   if (p.waterCrossing) return "water crossing";
   if (p.clayWhenWet) return "clay when wet";
   const back = saturdayStartMinutes + p.minutesOut + p.onSiteMinutes + p.minutesOut;
-  if (back > DUSK_MINUTES) return `back after dusk (${back} > ${DUSK_MINUTES})`;
+  if (back > duskMinutes) return `back after dusk (${back} > ${duskMinutes})`;
   return null;
 }
 
-function hardFilter(places: Place[], saturdayStartMinutes = SATURDAY_START): Place[] {
+function hardFilter(places: Place[], dusk: SaturdaySunset, saturdayStartMinutes = SATURDAY_START): Place[] {
   const dropped: { id: string; reason: string }[] = [];
   const keptList: Place[] = [];
   for (const p of places) {
-    const reason = rejectReason(p, saturdayStartMinutes);
+    const reason = rejectReason(p, saturdayStartMinutes, dusk.minutes);
     if (reason) dropped.push({ id: p.id, reason });
     else keptList.push(p);
   }
@@ -142,7 +142,8 @@ function hardFilter(places: Place[], saturdayStartMinutes = SATURDAY_START): Pla
     in: places.length,
     out: keptList.length,
     start: "10:00",
-    dusk: "19:30",
+    saturday: dusk.date,
+    dusk: dusk.clock,
   });
   return keptList;
 }
@@ -179,11 +180,11 @@ function onSiteLabel(minutes: number): string {
   return `${minutes} min on site`;
 }
 
-function leaveByLabel(place: Place): string {
-  return `leave by ${clock(DUSK_MINUTES - place.minutesOut)}`;
+function leaveByLabel(place: Place, duskMinutes: number): string {
+  return `leave by ${clock(duskMinutes - place.minutesOut)}`;
 }
 
-function toTicket(p: Place): Ticket {
+function toTicket(p: Place, duskMinutes: number): Ticket {
   return {
     id: p.id,
     title: p.title,
@@ -191,15 +192,15 @@ function toTicket(p: Place): Ticket {
     daylight: "BACK BEFORE DUSK",
     drive: driveLabel(p.minutesOut),
     onSite: onSiteLabel(p.onSiteMinutes),
-    leaveBy: leaveByLabel(p),
+    leaveBy: leaveByLabel(p, duskMinutes),
     photo: p.photo,
     photoAlt: p.photoAlt,
     credit: p.credit,
   };
 }
 
-function fallbackDeal(filtered: Place[]): Ticket[] {
-  const tickets = filtered.slice(0, 3).map(toTicket);
+function fallbackDeal(filtered: Place[], duskMinutes: number): Ticket[] {
+  const tickets = filtered.slice(0, 3).map((p) => toTicket(p, duskMinutes));
   log.line("deal.fallback", { count: tickets.length, ids: tickets.map((t) => t.id) });
   return tickets;
 }
@@ -284,22 +285,29 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
 export async function dealSaturday(mood?: Mood): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
-    log.line("deal.start", { home: "41144", radius: HOME_RADIUS_MILES, mood: mood ?? "none" });
+    const dusk = saturdaySunset();
+    log.line("deal.start", {
+      home: "41144",
+      radius: HOME_RADIUS_MILES,
+      mood: mood ?? "none",
+      saturday: dusk.date,
+      dusk: dusk.clock,
+    });
     loadNotes();
     const retrieved = await retrieve(mood);
     const retrievePath = reportOf(retrieved, retrieved.places, mood);
-    const filtered = kindFilter(hardFilter(retrieved.places), mood);
+    const filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
     const ids = await rankWithGemini(filtered);
     let tickets: Ticket[];
     if (!ids) {
-      tickets = fallbackDeal(filtered);
+      tickets = fallbackDeal(filtered, dusk.minutes);
     } else {
       const byId = new Map(filtered.map((p) => [p.id, p]));
       tickets = ids
         .map((id) => byId.get(id))
         .filter((p): p is Place => Boolean(p))
-        .map(toTicket);
-      if (!tickets.length) tickets = fallbackDeal(filtered);
+        .map((p) => toTicket(p, dusk.minutes));
+      if (!tickets.length) tickets = fallbackDeal(filtered, dusk.minutes);
       else log.line("deal.ranked", { ids: tickets.map((t) => t.id) });
     }
     log.json(
@@ -322,6 +330,8 @@ export async function dealSaturday(mood?: Mood): Promise<DealResult> {
         operator: retrievePath.operator,
         mood: retrievePath.mood,
         atlas: retrievePath.atlas,
+        saturday: dusk.date,
+        dusk: dusk.clock,
         count: tickets.length,
       },
     );
