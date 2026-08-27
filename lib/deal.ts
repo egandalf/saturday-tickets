@@ -154,7 +154,7 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
     return null;
   }
   const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] }[] };
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {

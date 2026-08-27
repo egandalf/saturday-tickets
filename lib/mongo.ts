@@ -24,14 +24,15 @@ function dbName(connection: string): string {
   return process.env.MONGODB_DB?.trim() || dbFromUri(connection) || "saturday";
 }
 
-function summarizeReply(reply: Document): unknown {
-  const cursor = reply.cursor as { ns?: string; firstBatch?: Document[]; nextBatch?: Document[] } | undefined;
+function summarizeReply(reply: unknown): unknown {
+  const doc = reply as Document;
+  const cursor = doc.cursor as { ns?: string; firstBatch?: Document[]; nextBatch?: Document[] } | undefined;
   if (cursor) {
     const batch = cursor.firstBatch ?? cursor.nextBatch ?? [];
     return {
       ns: cursor.ns,
       n: batch.length,
-      ids: batch.map((doc) => doc.id ?? doc._id),
+      ids: batch.map((row) => row.id ?? row._id),
     };
   }
   return sanitize(reply);
