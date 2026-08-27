@@ -11,6 +11,9 @@ type Ticket = {
   title: string;
   surface: "PAVED" | "PACKED GRAVEL";
   daylight: "BACK BEFORE DUSK";
+  drive: string;
+  onSite: string;
+  leaveBy: string;
   photo: string;
   photoAlt: string;
   credit?: string;
@@ -153,6 +156,9 @@ export function Tickets({
                 <span className="chip">{ticket.surface}</span>
                 <span className="chip">{ticket.daylight}</span>
               </div>
+              <p className="facts">
+                {ticket.drive} · {ticket.onSite} · {ticket.leaveBy}
+              </p>
               {ticket.credit ? <p className="credit">{ticket.credit}</p> : null}
             </div>
           </article>

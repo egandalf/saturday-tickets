@@ -10,6 +10,9 @@ export type Ticket = {
   title: string;
   surface: Place["surface"];
   daylight: "BACK BEFORE DUSK";
+  drive: string;
+  onSite: string;
+  leaveBy: string;
   photo: string;
   photoAlt: string;
   credit?: string;
@@ -34,6 +37,7 @@ export type DealResult = {
 
 const HOME_RADIUS_MILES = 150;
 const DUSK_MINUTES = 19 * 60 + 30;
+const SATURDAY_START = 10 * 60;
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
@@ -126,7 +130,7 @@ function rejectReason(p: Place, saturdayStartMinutes: number): string | null {
   return null;
 }
 
-function hardFilter(places: Place[], saturdayStartMinutes = 10 * 60): Place[] {
+function hardFilter(places: Place[], saturdayStartMinutes = SATURDAY_START): Place[] {
   const dropped: { id: string; reason: string }[] = [];
   const keptList: Place[] = [];
   for (const p of places) {
@@ -143,12 +147,37 @@ function hardFilter(places: Place[], saturdayStartMinutes = 10 * 60): Place[] {
   return keptList;
 }
 
+function clock(totalMinutes: number): string {
+  const hour24 = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  const suffix = hour24 >= 12 ? "pm" : "am";
+  const hour = hour24 % 12 || 12;
+  return minute === 0 ? `${hour} ${suffix}` : `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function driveLabel(minutes: number): string {
+  return `${minutes} min drive`;
+}
+
+function onSiteLabel(minutes: number): string {
+  if (minutes % 60 === 0) return `${minutes / 60} hr on site`;
+  if (minutes > 60) return `${Math.floor(minutes / 60)} hr ${minutes % 60} min on site`;
+  return `${minutes} min on site`;
+}
+
+function leaveByLabel(place: Place): string {
+  return `leave by ${clock(SATURDAY_START + place.minutesOut + place.onSiteMinutes)}`;
+}
+
 function toTicket(p: Place): Ticket {
   return {
     id: p.id,
     title: p.title,
     surface: p.surface,
     daylight: "BACK BEFORE DUSK",
+    drive: driveLabel(p.minutesOut),
+    onSite: onSiteLabel(p.onSiteMinutes),
+    leaveBy: leaveByLabel(p),
     photo: p.photo,
     photoAlt: p.photoAlt,
     credit: p.credit,
@@ -262,6 +291,9 @@ export async function dealSaturday(mood?: Mood): Promise<DealResult> {
         title: t.title,
         surface: t.surface,
         daylight: t.daylight,
+        drive: t.drive,
+        onSite: t.onSite,
+        leaveBy: t.leaveBy,
         photo: t.photo,
         credit: t.credit ?? null,
       })),
