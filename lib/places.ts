@@ -4,6 +4,18 @@ export type Kind = "lake" | "woods" | "town" | "history";
 /** Signed town pins: murals and river-town streets. Ritter is a city park until signed. */
 export const SIGNED_TOWN_IDS = ["ashland-floodwall", "portsmouth-murals"] as const;
 
+/** Signed water pins. Jesse Stuart and Bennett's Mill are not lakes. */
+export const SIGNED_LAKE_IDS = [
+  "greenbo",
+  "grayson-lake",
+  "vesuvius-beach",
+  "beech-fork",
+  "yatesville",
+  "east-lynn",
+  "twin-knobs",
+  "paintsville-lake",
+] as const;
+
 export type Place = {
   id: string;
   title: string;
@@ -26,6 +38,7 @@ export const PLACES: Place[] = [
     id: "greenbo",
     title: "Greenbo Lake",
     surface: "PAVED",
+    kind: "lake",
     milesFromHome: 12,
     minutesOut: 20,
     onSiteMinutes: 180,

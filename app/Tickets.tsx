@@ -27,6 +27,12 @@ type Retrieve = {
   mood: string | null;
 };
 
+function familyLede(count: number): string {
+  if (count === 1) return "One family Saturday from the driveway.";
+  if (count === 2) return "Two family Saturdays from the driveway.";
+  return "Three family Saturdays from the driveway.";
+}
+
 function kv(fields?: Record<string, unknown>): string {
   if (!fields) return "";
   return Object.entries(fields)
@@ -123,6 +129,10 @@ export function Tickets({
 
   return (
     <>
+      <header>
+        <p className="kicker">Saturday tickets</p>
+        <h1>{familyLede(tickets.length)}</h1>
+      </header>
       <div className="mood">
         <p className="mood-label">Tonight we’re in the mood for</p>
         <div className="mood-chips" role="group" aria-label="Tonight we’re in the mood for">

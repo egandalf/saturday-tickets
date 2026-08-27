@@ -1,6 +1,6 @@
 import { log, takeCalls, withDeal } from "./log";
 import { loadPlacesFromAtlas } from "./mongo";
-import { PLACES, SIGNED_TOWN_IDS, type Place } from "./places";
+import { PLACES, SIGNED_LAKE_IDS, SIGNED_TOWN_IDS, type Place } from "./places";
 import { saturdaySunset, type SaturdaySunset } from "./sun";
 import type { DealCall } from "./trace";
 
@@ -55,7 +55,7 @@ export function parseMood(value: string | null): Mood | undefined {
 }
 
 function queryFor(mood?: Mood): string {
-  if (!mood || mood === "town") return FAMILY_QUERY;
+  if (!mood || mood === "town" || mood === "lake") return FAMILY_QUERY;
   return `${FAMILY_QUERY} ${NUDGE[mood]}`;
 }
 
@@ -148,17 +148,25 @@ function hardFilter(places: Place[], dusk: SaturdaySunset, saturdayStartMinutes 
   return keptList;
 }
 
+function isSignedKind(p: Place, mood: Mood): boolean {
+  if (mood === "town") {
+    return p.kind === "town" || (SIGNED_TOWN_IDS as readonly string[]).includes(p.id);
+  }
+  if (mood === "lake") {
+    return p.kind === "lake" || (SIGNED_LAKE_IDS as readonly string[]).includes(p.id);
+  }
+  return true;
+}
+
 function kindFilter(places: Place[], mood?: Mood): Place[] {
-  if (mood !== "town") return places;
+  if (mood !== "town" && mood !== "lake") return places;
   const kept: Place[] = [];
   const dropped: string[] = [];
   for (const p of places) {
-    const signed =
-      p.kind === "town" || (SIGNED_TOWN_IDS as readonly string[]).includes(p.id);
-    if (signed) kept.push(p);
+    if (isSignedKind(p, mood)) kept.push(p);
     else dropped.push(p.id);
   }
-  log.json("filter.kind", { kept: kept.map((p) => p.id), dropped }, { mood: "town" });
+  log.json("filter.kind", { kept: kept.map((p) => p.id), dropped }, { mood });
   return kept;
 }
 

@@ -35,10 +35,6 @@ export default async function HomePage() {
 
   return (
     <main className="deck">
-      <header>
-        <p className="kicker">Saturday tickets</p>
-        <h1>Three family Saturdays from the driveway.</h1>
-      </header>
       <Tickets initial={tickets} retrieve={retrieve} calls={calls} />
     </main>
   );

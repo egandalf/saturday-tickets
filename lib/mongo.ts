@@ -1,6 +1,6 @@
 import { MongoClient, type Collection, type Document } from "mongodb";
 import { dbFromUri, hostFromUri, log, redactUri, sanitize } from "./log";
-import { SIGNED_TOWN_IDS, type Kind, type Place, type Surface } from "./places";
+import { SIGNED_LAKE_IDS, SIGNED_TOWN_IDS, type Kind, type Place, type Surface } from "./places";
 import { embedQuery } from "./voyage";
 
 type GlobalMongo = {
@@ -117,6 +117,7 @@ async function connect(): Promise<MongoClient | null> {
 function asKind(doc: Document): Kind | undefined {
   if (KINDS.includes(doc.kind as Kind)) return doc.kind as Kind;
   if ((SIGNED_TOWN_IDS as readonly string[]).includes(doc.id)) return "town";
+  if ((SIGNED_LAKE_IDS as readonly string[]).includes(doc.id)) return "lake";
   return undefined;
 }
 
