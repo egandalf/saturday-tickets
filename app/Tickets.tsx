@@ -16,6 +16,7 @@ type Retrieve = {
   source: "atlas" | "seed";
   via: "vector" | "find" | null;
   operator: "$vectorSearch" | "find" | "seed";
+  atlas: { n: number; withCredit: number } | null;
 };
 
 function clientLog(scope: string, details: string) {
@@ -30,7 +31,7 @@ export function Tickets({ initial, retrieve }: { initial: Ticket[]; retrieve: Re
     if (initial.length) {
       clientLog(
         "ssr",
-        `count=${initial.length}  ids=${JSON.stringify(initial.map((t) => t.id))}  operator=${retrieve.operator}`,
+        `count=${initial.length}  ids=${JSON.stringify(initial.map((t) => t.id))}  operator=${retrieve.operator}  atlas=${JSON.stringify(retrieve.atlas)}`,
       );
       return;
     }
@@ -53,7 +54,7 @@ export function Tickets({ initial, retrieve }: { initial: Ticket[]; retrieve: Re
         const message = err instanceof Error ? err.message : String(err);
         console.error(`tickets │ ${new Date().toISOString().slice(11, 23)} │ client │ fetch.fail  ${message}`);
       });
-  }, [initial, retrieve.operator]);
+  }, [initial, retrieve.operator, retrieve.atlas]);
 
   useEffect(() => {
     for (const ticket of tickets) {
@@ -65,7 +66,13 @@ export function Tickets({ initial, retrieve }: { initial: Ticket[]; retrieve: Re
   }, [tickets]);
 
   return (
-    <section className="tickets" aria-label="Saturday tickets" data-retrieve={path.operator}>
+    <section
+      className="tickets"
+      aria-label="Saturday tickets"
+      data-retrieve={path.operator}
+      data-atlas-n={path.atlas?.n ?? ""}
+      data-atlas-credits={path.atlas?.withCredit ?? ""}
+    >
       {tickets.map((ticket) => (
         <article className="ticket" key={ticket.id}>
           <img className="photo" src={ticket.photo} alt={ticket.photoAlt} />

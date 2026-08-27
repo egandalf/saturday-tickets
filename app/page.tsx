@@ -10,6 +10,7 @@ export default async function HomePage() {
     source: "seed",
     via: null,
     operator: "seed",
+    atlas: null,
   };
   try {
     const dealt = await dealSaturday();
@@ -21,6 +22,7 @@ export default async function HomePage() {
       source: retrieve.source,
       via: retrieve.via,
       operator: retrieve.operator,
+      atlas: retrieve.atlas,
     });
   } catch (err) {
     log.error("page.deal.fail", err);

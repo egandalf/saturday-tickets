@@ -14,6 +14,7 @@ export async function GET() {
       source: dealt.retrieve.source,
       via: dealt.retrieve.via,
       operator: dealt.retrieve.operator,
+      atlas: dealt.retrieve.atlas,
     });
     return Response.json(
       { tickets: dealt.tickets, retrieve: dealt.retrieve },
@@ -24,7 +25,7 @@ export async function GET() {
     return Response.json(
       {
         tickets: [],
-        retrieve: { source: "seed", via: null, operator: "seed" },
+        retrieve: { source: "seed", via: null, operator: "seed", atlas: null },
         error: "deal failed",
       },
       { status: 500, headers: { "Cache-Control": "no-store" } },

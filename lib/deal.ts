@@ -16,6 +16,7 @@ export type RetrieveReport = {
   source: "atlas" | "seed";
   via: "vector" | "find" | null;
   operator: "$vectorSearch" | "find" | "seed";
+  atlas: { n: number; withCredit: number } | null;
 };
 
 export type DealResult = {
@@ -32,17 +33,25 @@ function loadNotes(): string[] {
   return notes;
 }
 
-function reportOf(retrieved: {
-  source: "atlas" | "seed";
-  via?: "vector" | "find";
-}): RetrieveReport {
+function coverage(places: Place[]): { n: number; withCredit: number } {
+  return {
+    n: places.length,
+    withCredit: places.filter((p) => Boolean(p.credit)).length,
+  };
+}
+
+function reportOf(
+  retrieved: { source: "atlas" | "seed"; via?: "vector" | "find" },
+  places: Place[],
+): RetrieveReport {
+  const atlas = retrieved.source === "atlas" ? coverage(places) : null;
   if (retrieved.via === "vector") {
-    return { source: "atlas", via: "vector", operator: "$vectorSearch" };
+    return { source: "atlas", via: "vector", operator: "$vectorSearch", atlas };
   }
   if (retrieved.source === "atlas") {
-    return { source: "atlas", via: "find", operator: "find" };
+    return { source: "atlas", via: "find", operator: "find", atlas };
   }
-  return { source: "seed", via: null, operator: "seed" };
+  return { source: "seed", via: null, operator: "seed", atlas: null };
 }
 
 async function retrieve(): Promise<{
@@ -56,6 +65,7 @@ async function retrieve(): Promise<{
     log.line("retrieve.atlas", {
       via: fromAtlas.via,
       count: fromAtlas.places.length,
+      withCredit: fromAtlas.places.filter((p) => Boolean(p.credit)).length,
       ids: fromAtlas.places.map((p) => p.id),
       radius: HOME_RADIUS_MILES,
     });
@@ -198,7 +208,7 @@ export async function dealSaturday(): Promise<DealResult> {
     log.line("deal.start", { home: "41144", radius: HOME_RADIUS_MILES });
     loadNotes();
     const retrieved = await retrieve();
-    const retrievePath = reportOf(retrieved);
+    const retrievePath = reportOf(retrieved, retrieved.places);
     const filtered = hardFilter(retrieved.places);
     const ids = await rankWithGemini(filtered);
     let tickets: Ticket[];
@@ -228,6 +238,7 @@ export async function dealSaturday(): Promise<DealResult> {
         source: retrievePath.source,
         via: retrievePath.via,
         operator: retrievePath.operator,
+        atlas: retrievePath.atlas,
         count: tickets.length,
       },
     );

@@ -2,13 +2,13 @@ import { log } from "./log";
 
 const MODEL = "voyage-3-lite";
 
-export async function embedQuery(text: string): Promise<number[] | null> {
-  const key = process.env.VOYAGE_API_KEY?.trim();
-  if (!key) {
-    log.line("voyage.skip", { reason: "VOYAGE_API_KEY unset" });
-    return null;
-  }
+type GlobalVoyage = {
+  __ticketsQueryEmbed?: { text: string; vec: number[] };
+};
 
+const g = globalThis as typeof globalThis & GlobalVoyage;
+
+async function requestEmbed(key: string, text: string): Promise<number[] | null> {
   const started = Date.now();
   const res = await fetch("https://api.voyageai.com/v1/embeddings", {
     method: "POST",
@@ -33,5 +33,25 @@ export async function embedQuery(text: string): Promise<number[] | null> {
   }
 
   log.line("voyage.query", { ms, dims: vec.length, model: MODEL });
+  return vec;
+}
+
+export async function embedQuery(text: string): Promise<number[] | null> {
+  if (g.__ticketsQueryEmbed?.text === text) {
+    log.line("voyage.cache", { dims: g.__ticketsQueryEmbed.vec.length, model: MODEL });
+    return g.__ticketsQueryEmbed.vec;
+  }
+
+  const key = process.env.VOYAGE_API_KEY?.trim();
+  if (!key) {
+    log.line("voyage.skip", { reason: "VOYAGE_API_KEY unset" });
+    return null;
+  }
+
+  const first = await requestEmbed(key, text);
+  const vec = first ?? (await requestEmbed(key, text));
+  if (!vec) return null;
+
+  g.__ticketsQueryEmbed = { text, vec };
   return vec;
 }
