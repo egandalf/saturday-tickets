@@ -166,7 +166,7 @@ function onSiteLabel(minutes: number): string {
 }
 
 function leaveByLabel(place: Place): string {
-  return `leave by ${clock(SATURDAY_START + place.minutesOut + place.onSiteMinutes)}`;
+  return `leave by ${clock(DUSK_MINUTES - place.minutesOut)}`;
 }
 
 function toTicket(p: Place): Ticket {
