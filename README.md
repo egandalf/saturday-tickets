@@ -18,6 +18,10 @@ Hard filters, not badges: turnaround, no water crossing, clay-when-wet refuse.
 
 Visual: graphite, chalk type, Solar Yellow `#ffac00` only. No Rivian logo.
 
+## Logs
+
+Each deal prints a labeled block to the Vercel runtime log (and the browser console for cards). Lines share an 8-char deal id. Atlas command traffic is pretty-printed JSON. URIs, passwords, API keys, and embeddings are stripped.
+
 ## Setup
 
 ```bash

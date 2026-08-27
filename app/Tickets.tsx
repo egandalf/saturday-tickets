@@ -12,18 +12,43 @@ type Ticket = {
   credit?: string;
 };
 
+function clientLog(scope: string, details: string) {
+  console.log(`tickets │ ${new Date().toISOString().slice(11, 23)} │ client │ ${scope}  ${details}`);
+}
+
 export function Tickets({ initial }: { initial: Ticket[] }) {
   const [tickets, setTickets] = useState(initial);
 
   useEffect(() => {
-    if (initial.length) return;
+    if (initial.length) {
+      clientLog("ssr", `count=${initial.length}  ids=${JSON.stringify(initial.map((t) => t.id))}`);
+      return;
+    }
+    clientLog("fetch", "GET /api/deal");
     fetch("/api/deal")
       .then((res) => res.json())
       .then((data: { tickets?: Ticket[] }) => {
-        if (data.tickets?.length) setTickets(data.tickets);
+        if (data.tickets?.length) {
+          clientLog("fetch.ok", `count=${data.tickets.length}  ids=${JSON.stringify(data.tickets.map((t) => t.id))}`);
+          setTickets(data.tickets);
+        } else {
+          clientLog("fetch.empty", "no tickets");
+        }
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`tickets │ ${new Date().toISOString().slice(11, 23)} │ client │ fetch.fail  ${message}`);
+      });
   }, [initial]);
+
+  useEffect(() => {
+    for (const ticket of tickets) {
+      clientLog(
+        ticket.id,
+        `${ticket.surface}  ${ticket.daylight}  photo=${ticket.photo}${ticket.credit ? `  credit=${ticket.credit}` : ""}`
+      );
+    }
+  }, [tickets]);
 
   return (
     <section className="tickets" aria-label="Saturday tickets">

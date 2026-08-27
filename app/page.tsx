@@ -1,11 +1,14 @@
 import { dealSaturday } from "@/lib/deal";
+import { log } from "@/lib/log";
 import { Tickets } from "./Tickets";
 
 export default async function HomePage() {
   let tickets: Awaited<ReturnType<typeof dealSaturday>> = [];
   try {
     tickets = await dealSaturday();
-  } catch {
+    log.line("page.render", { count: tickets.length, ids: tickets.map((t) => t.id) });
+  } catch (err) {
+    log.error("page.deal.fail", err);
     tickets = [];
   }
 
