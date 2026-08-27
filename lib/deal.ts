@@ -12,6 +12,17 @@ export type Ticket = {
   credit?: string;
 };
 
+export type RetrieveReport = {
+  source: "atlas" | "seed";
+  via: "vector" | "find" | null;
+  operator: "$vectorSearch" | "find" | "seed";
+};
+
+export type DealResult = {
+  tickets: Ticket[];
+  retrieve: RetrieveReport;
+};
+
 const HOME_RADIUS_MILES = 150;
 const DUSK_MINUTES = 19 * 60 + 30;
 
@@ -19,6 +30,19 @@ function loadNotes(): string[] {
   const notes: string[] = [];
   log.line("load.notes", { source: "empty", count: notes.length });
   return notes;
+}
+
+function reportOf(retrieved: {
+  source: "atlas" | "seed";
+  via?: "vector" | "find";
+}): RetrieveReport {
+  if (retrieved.via === "vector") {
+    return { source: "atlas", via: "vector", operator: "$vectorSearch" };
+  }
+  if (retrieved.source === "atlas") {
+    return { source: "atlas", via: "find", operator: "find" };
+  }
+  return { source: "seed", via: null, operator: "seed" };
 }
 
 async function retrieve(): Promise<{
@@ -168,12 +192,13 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   return ids.length ? ids : null;
 }
 
-export async function dealSaturday(): Promise<Ticket[]> {
+export async function dealSaturday(): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
     log.line("deal.start", { home: "41144", radius: HOME_RADIUS_MILES });
     loadNotes();
     const retrieved = await retrieve();
+    const retrievePath = reportOf(retrieved);
     const filtered = hardFilter(retrieved.places);
     const ids = await rankWithGemini(filtered);
     let tickets: Ticket[];
@@ -198,8 +223,14 @@ export async function dealSaturday(): Promise<Ticket[]> {
         photo: t.photo,
         credit: t.credit ?? null,
       })),
-      { ms: Date.now() - t0, source: retrieved.source, via: retrieved.via, count: tickets.length }
+      {
+        ms: Date.now() - t0,
+        source: retrievePath.source,
+        via: retrievePath.via,
+        operator: retrievePath.operator,
+        count: tickets.length,
+      },
     );
-    return tickets;
+    return { tickets, retrieve: retrievePath };
   });
 }
