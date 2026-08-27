@@ -11,6 +11,7 @@ export default async function HomePage() {
     via: null,
     operator: "seed",
     atlas: null,
+    mood: null,
   };
   try {
     const dealt = await dealSaturday();
@@ -32,11 +33,8 @@ export default async function HomePage() {
   return (
     <main className="deck">
       <header>
-        <p className="kicker">Thursday night</p>
-        <h1>Three tickets. One Saturday.</h1>
-        <p className="lede">
-          Three Saturday ideas from the driveway. Leave after breakfast, home before dusk.
-        </p>
+        <p className="kicker">Saturday tickets</p>
+        <h1>Three family Saturdays from the driveway.</h1>
       </header>
       <Tickets initial={tickets} retrieve={retrieve} />
     </main>

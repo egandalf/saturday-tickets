@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+const MOODS = ["Lake", "Woods", "Town", "History"] as const;
+type MoodLabel = (typeof MOODS)[number];
+
 type Ticket = {
   id: string;
   title: string;
@@ -17,6 +20,7 @@ type Retrieve = {
   via: "vector" | "find" | null;
   operator: "$vectorSearch" | "find" | "seed";
   atlas: { n: number; withCredit: number } | null;
+  mood: string | null;
 };
 
 function clientLog(scope: string, details: string) {
@@ -26,24 +30,28 @@ function clientLog(scope: string, details: string) {
 export function Tickets({ initial, retrieve }: { initial: Ticket[]; retrieve: Retrieve }) {
   const [tickets, setTickets] = useState(initial);
   const [path, setPath] = useState(retrieve);
+  const [mood, setMood] = useState<MoodLabel | null>(null);
 
   useEffect(() => {
-    if (initial.length) {
+    if (mood === null && initial.length) {
+      setTickets(initial);
+      setPath(retrieve);
       clientLog(
         "ssr",
-        `count=${initial.length}  ids=${JSON.stringify(initial.map((t) => t.id))}  operator=${retrieve.operator}  atlas=${JSON.stringify(retrieve.atlas)}`,
+        `count=${initial.length}  ids=${JSON.stringify(initial.map((t) => t.id))}  operator=${retrieve.operator}`,
       );
       return;
     }
-    clientLog("fetch", "GET /api/deal");
-    fetch("/api/deal", { cache: "no-store" })
+    const url = mood ? `/api/deal?mood=${mood.toLowerCase()}` : "/api/deal";
+    clientLog("fetch", `GET ${url}`);
+    fetch(url, { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { tickets?: Ticket[]; retrieve?: Retrieve }) => {
         if (data.retrieve) setPath(data.retrieve);
         if (data.tickets?.length) {
           clientLog(
             "fetch.ok",
-            `count=${data.tickets.length}  ids=${JSON.stringify(data.tickets.map((t) => t.id))}  operator=${data.retrieve?.operator ?? "?"}`,
+            `count=${data.tickets.length}  ids=${JSON.stringify(data.tickets.map((t) => t.id))}  mood=${data.retrieve?.mood ?? "none"}  operator=${data.retrieve?.operator ?? "?"}`,
           );
           setTickets(data.tickets);
         } else {
@@ -54,7 +62,7 @@ export function Tickets({ initial, retrieve }: { initial: Ticket[]; retrieve: Re
         const message = err instanceof Error ? err.message : String(err);
         console.error(`tickets │ ${new Date().toISOString().slice(11, 23)} │ client │ fetch.fail  ${message}`);
       });
-  }, [initial, retrieve.operator, retrieve.atlas]);
+  }, [mood, initial, retrieve]);
 
   useEffect(() => {
     for (const ticket of tickets) {
@@ -66,26 +74,45 @@ export function Tickets({ initial, retrieve }: { initial: Ticket[]; retrieve: Re
   }, [tickets]);
 
   return (
-    <section
-      className="tickets"
-      aria-label="Saturday tickets"
-      data-retrieve={path.operator}
-      data-atlas-n={path.atlas?.n ?? ""}
-      data-atlas-credits={path.atlas?.withCredit ?? ""}
-    >
-      {tickets.map((ticket) => (
-        <article className="ticket" key={ticket.id}>
-          <img className="photo" src={ticket.photo} alt={ticket.photoAlt} />
-          <div className="ticket-body">
-            <h2>{ticket.title}</h2>
-            <div className="chips">
-              <span className="chip">{ticket.surface}</span>
-              <span className="chip">{ticket.daylight}</span>
+    <>
+      <div className="mood">
+        <p className="mood-label">Tonight we’re in the mood for</p>
+        <div className="mood-chips" role="group" aria-label="Tonight we’re in the mood for">
+          {MOODS.map((label) => (
+            <button
+              key={label}
+              type="button"
+              className="mood-chip"
+              aria-pressed={mood === label}
+              onClick={() => setMood((current) => (current === label ? null : label))}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <section
+        className="tickets"
+        aria-label="Saturday tickets"
+        data-retrieve={path.operator}
+        data-mood={path.mood ?? ""}
+        data-atlas-n={path.atlas?.n ?? ""}
+        data-atlas-credits={path.atlas?.withCredit ?? ""}
+      >
+        {tickets.map((ticket) => (
+          <article className="ticket" key={ticket.id}>
+            <img className="photo" src={ticket.photo} alt={ticket.photoAlt} />
+            <div className="ticket-body">
+              <h2>{ticket.title}</h2>
+              <div className="chips">
+                <span className="chip">{ticket.surface}</span>
+                <span className="chip">{ticket.daylight}</span>
+              </div>
+              {ticket.credit ? <p className="credit">{ticket.credit}</p> : null}
             </div>
-            {ticket.credit ? <p className="credit">{ticket.credit}</p> : null}
-          </div>
-        </article>
-      ))}
-    </section>
+          </article>
+        ))}
+      </section>
+    </>
   );
 }
