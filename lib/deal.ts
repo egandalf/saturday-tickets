@@ -34,6 +34,7 @@ export type DealResult = {
 
 const HOME_RADIUS_MILES = 150;
 const DUSK_MINUTES = 19 * 60 + 30;
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 
@@ -178,7 +179,7 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
     milesFromHome: p.milesFromHome,
   }));
   log.json("gemini.request", candidates, {
-    model: "gemini-2.5-flash-lite",
+    model: GEMINI_MODEL,
     n: candidates.length,
   });
 
@@ -202,7 +203,7 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
 
   const started = Date.now();
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
     {
       method: "POST",
       headers: {
