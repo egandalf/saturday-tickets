@@ -1,6 +1,6 @@
 import { log, takeCalls, withDeal } from "./log";
 import { loadPlacesFromAtlas } from "./mongo";
-import { PLACES, type Place } from "./places";
+import { PLACES, SIGNED_TOWN_IDS, type Place } from "./places";
 import type { DealCall } from "./trace";
 
 export type { DealCall };
@@ -55,7 +55,7 @@ export function parseMood(value: string | null): Mood | undefined {
 }
 
 function queryFor(mood?: Mood): string {
-  if (!mood) return FAMILY_QUERY;
+  if (!mood || mood === "town") return FAMILY_QUERY;
   return `${FAMILY_QUERY} ${NUDGE[mood]}`;
 }
 
@@ -147,6 +147,20 @@ function hardFilter(places: Place[], saturdayStartMinutes = SATURDAY_START): Pla
   return keptList;
 }
 
+function kindFilter(places: Place[], mood?: Mood): Place[] {
+  if (mood !== "town") return places;
+  const kept: Place[] = [];
+  const dropped: string[] = [];
+  for (const p of places) {
+    const signed =
+      p.kind === "town" || (SIGNED_TOWN_IDS as readonly string[]).includes(p.id);
+    if (signed) kept.push(p);
+    else dropped.push(p.id);
+  }
+  log.json("filter.kind", { kept: kept.map((p) => p.id), dropped }, { mood: "town" });
+  return kept;
+}
+
 function clock(totalMinutes: number): string {
   const hour24 = Math.floor(totalMinutes / 60);
   const minute = totalMinutes % 60;
@@ -198,6 +212,10 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   }
   if (filtered.length === 0) {
     log.line("gemini.skip", { reason: "no filtered places" });
+    return null;
+  }
+  if (filtered.length < 3) {
+    log.line("gemini.skip", { reason: "fewer than three after kind filter", n: filtered.length });
     return null;
   }
 
@@ -270,7 +288,7 @@ export async function dealSaturday(mood?: Mood): Promise<DealResult> {
     loadNotes();
     const retrieved = await retrieve(mood);
     const retrievePath = reportOf(retrieved, retrieved.places, mood);
-    const filtered = hardFilter(retrieved.places);
+    const filtered = kindFilter(hardFilter(retrieved.places), mood);
     const ids = await rankWithGemini(filtered);
     let tickets: Ticket[];
     if (!ids) {
