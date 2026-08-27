@@ -12,7 +12,7 @@ html, body {
   min-height: 100%;
   background: var(--graphite);
   color: var(--chalk);
-  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-family: "Source Sans 3", "Helvetica Neue", Helvetica, system-ui, sans-serif;
 }
 
 body {
@@ -20,9 +20,10 @@ body {
 }
 
 h1, h2 {
-  font-family: "Patrick Hand", cursive;
-  font-weight: 400;
+  font-family: "Source Sans 3", "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  font-weight: 700;
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .kicker {
@@ -81,7 +82,7 @@ h1, h2 {
 }
 
 .ticket h2 {
-  font-size: 1.7rem;
+  font-size: 1.45rem;
   margin-bottom: 10px;
 }
 
