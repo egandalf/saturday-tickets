@@ -1,34 +1,25 @@
-const TICKETS = [
-  { title: "Saturday one", surface: "PAVED", daylight: "BACK BEFORE DUSK" },
-  { title: "Saturday two", surface: "PACKED GRAVEL", daylight: "BACK BEFORE DUSK" },
-  { title: "Saturday three", surface: "PAVED", daylight: "BACK BEFORE DUSK" },
-] as const;
+import { dealSaturday } from "@/lib/deal";
+import { Tickets } from "./Tickets";
 
-export default function HomePage() {
+export default async function HomePage() {
+  let tickets: Awaited<ReturnType<typeof dealSaturday>> = [];
+  try {
+    tickets = await dealSaturday();
+  } catch {
+    tickets = [];
+  }
+
   return (
     <main className="deck">
       <header>
         <p className="kicker">Thursday night</p>
         <h1>Three tickets. One Saturday.</h1>
         <p className="lede">
-          Layout shell only. Photos and places get seeded later. Chips are surface and
-          daylight. Turnaround and water crossings stay off the card.
+          Three family Saturdays from the driveway. Surface and daylight on the ticket.
+          Turnaround and water crossings stay off the card.
         </p>
       </header>
-      <section className="tickets" aria-label="Saturday tickets">
-        {TICKETS.map((ticket) => (
-          <article className="ticket" key={ticket.title}>
-            <div className="photo" role="img" aria-label="Photo placeholder" />
-            <div className="ticket-body">
-              <h2>{ticket.title}</h2>
-              <div className="chips">
-                <span className="chip">{ticket.surface}</span>
-                <span className="chip">{ticket.daylight}</span>
-              </div>
-            </div>
-          </article>
-        ))}
-      </section>
+      <Tickets initial={tickets} />
     </main>
   );
 }
