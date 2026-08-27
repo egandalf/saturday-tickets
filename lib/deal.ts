@@ -21,15 +21,21 @@ function loadNotes(): string[] {
   return notes;
 }
 
-async function retrieve(): Promise<{ places: Place[]; source: "atlas" | "seed"; reason?: string }> {
+async function retrieve(): Promise<{
+  places: Place[];
+  source: "atlas" | "seed";
+  via?: "vector" | "find";
+  reason?: string;
+}> {
   const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES);
-  if (fromAtlas && fromAtlas.length) {
+  if (fromAtlas && fromAtlas.places.length) {
     log.line("retrieve.atlas", {
-      count: fromAtlas.length,
-      ids: fromAtlas.map((p) => p.id),
+      via: fromAtlas.via,
+      count: fromAtlas.places.length,
+      ids: fromAtlas.places.map((p) => p.id),
       radius: HOME_RADIUS_MILES,
     });
-    return { places: fromAtlas, source: "atlas" };
+    return { places: fromAtlas.places, source: "atlas", via: fromAtlas.via };
   }
 
   const seed = PLACES.filter((p) => p.milesFromHome <= HOME_RADIUS_MILES && Boolean(p.photo));
@@ -55,20 +61,20 @@ function rejectReason(p: Place, saturdayStartMinutes: number): string | null {
 }
 
 function hardFilter(places: Place[], saturdayStartMinutes = 10 * 60): Place[] {
-  const kept: Place[] = [];
   const dropped: { id: string; reason: string }[] = [];
+  const keptList: Place[] = [];
   for (const p of places) {
     const reason = rejectReason(p, saturdayStartMinutes);
     if (reason) dropped.push({ id: p.id, reason });
-    else kept.push(p);
+    else keptList.push(p);
   }
-  log.json("filter.hard", { kept: kept.map((p) => p.id), dropped }, {
+  log.json("filter.hard", { kept: keptList.map((p) => p.id), dropped }, {
     in: places.length,
-    out: kept.length,
+    out: keptList.length,
     start: "10:00",
     dusk: "19:30",
   });
-  return kept;
+  return keptList;
 }
 
 function toTicket(p: Place): Ticket {
@@ -148,7 +154,7 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
     return null;
   }
   const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    candidates?: { content?: { parts?: { text?: string }[] }[] };
   };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {
@@ -192,7 +198,7 @@ export async function dealSaturday(): Promise<Ticket[]> {
         photo: t.photo,
         credit: t.credit ?? null,
       })),
-      { ms: Date.now() - t0, source: retrieved.source, count: tickets.length }
+      { ms: Date.now() - t0, source: retrieved.source, via: retrieved.via, count: tickets.length }
     );
     return tickets;
   });

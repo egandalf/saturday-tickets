@@ -1,6 +1,7 @@
-import { MongoClient, type Document } from "mongodb";
+import { MongoClient, type Collection, type Document } from "mongodb";
 import { dbFromUri, hostFromUri, log, redactUri, sanitize } from "./log";
 import type { Place, Surface } from "./places";
+import { embedQuery } from "./voyage";
 
 type GlobalMongo = {
   __ticketsMongo?: MongoClient;
@@ -10,6 +11,9 @@ type GlobalMongo = {
 const g = globalThis as typeof globalThis & GlobalMongo;
 
 const SURFACES: Surface[] = ["PAVED", "PACKED GRAVEL"];
+const VECTOR_INDEX = "places_vector";
+const FAMILY_QUERY =
+  "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 
 function uri(): string | undefined {
   const value = process.env.MONGODB_URI?.trim();
@@ -131,13 +135,90 @@ function asPlace(doc: Document): Place | null {
   };
 }
 
-export type RetrieveResult = {
+function mapped(docs: Document[]): Place[] {
+  return docs.map(asPlace).filter((p): p is Place => Boolean(p));
+}
+
+async function findPlaces(coll: Collection<Document>, radiusMiles: number, db: string): Promise<Place[]> {
+  const filter = {
+    milesFromHome: { $lte: radiusMiles },
+    photo: { $type: "string", $ne: "" },
+    surface: { $in: SURFACES },
+  };
+
+  log.json("mongo.places.find", filter, { db, coll: coll.collectionName });
+
+  const started = Date.now();
+  const docs = await coll.find(filter).toArray();
+  const places = mapped(docs);
+  log.line("mongo.places.result", {
+    via: "find",
+    ms: Date.now() - started,
+    docs: docs.length,
+    mapped: places.length,
+    skipped: docs.length - places.length,
+    ids: places.map((p) => p.id),
+  });
+  return places;
+}
+
+async function vectorPlaces(
+  coll: Collection<Document>,
+  radiusMiles: number,
+  queryText: string,
+  db: string,
+): Promise<Place[] | null> {
+  const queryVector = await embedQuery(queryText);
+  if (!queryVector) return null;
+
+  const pipeline: Document[] = [
+    {
+      $vectorSearch: {
+        index: VECTOR_INDEX,
+        path: "embedding",
+        queryVector,
+        numCandidates: 44,
+        limit: 22,
+        filter: { milesFromHome: { $lte: radiusMiles } },
+      },
+    },
+    { $project: { embedding: 0, embeddingModel: 0, embeddingDims: 0 } },
+  ];
+
+  log.json(
+    "mongo.places.vector",
+    { index: VECTOR_INDEX, radius: radiusMiles, numCandidates: 44, limit: 22 },
+    { db, coll: coll.collectionName },
+  );
+
+  const started = Date.now();
+  try {
+    const docs = await coll.aggregate(pipeline).toArray();
+    const places = mapped(docs);
+    log.line("mongo.places.result", {
+      via: "vector",
+      ms: Date.now() - started,
+      docs: docs.length,
+      mapped: places.length,
+      skipped: docs.length - places.length,
+      ids: places.map((p) => p.id),
+    });
+    return places;
+  } catch (err) {
+    log.error("mongo.places.vector.fail", err, { ms: Date.now() - started });
+    return null;
+  }
+}
+
+export type AtlasLoad = {
   places: Place[];
-  source: "atlas" | "seed";
-  reason?: string;
+  via: "vector" | "find";
 };
 
-export async function loadPlacesFromAtlas(radiusMiles: number): Promise<Place[] | null> {
+export async function loadPlacesFromAtlas(
+  radiusMiles: number,
+  queryText = FAMILY_QUERY,
+): Promise<AtlasLoad | null> {
   const connection = uri();
   if (!connection) return null;
 
@@ -145,29 +226,21 @@ export async function loadPlacesFromAtlas(radiusMiles: number): Promise<Place[] 
   if (!client) return null;
 
   const db = client.db(dbName(connection));
-  const filter = {
-    milesFromHome: { $lte: radiusMiles },
-    photo: { $type: "string", $ne: "" },
-    surface: { $in: SURFACES },
-  };
+  const coll = db.collection("places");
 
-  log.json("mongo.places.find", filter, { db: db.databaseName, coll: "places" });
+  const fromVector = await vectorPlaces(coll, radiusMiles, queryText, db.databaseName);
+  if (fromVector && fromVector.length) {
+    const notes = await db.collection("notes").estimatedDocumentCount();
+    log.line("mongo.notes", { count: notes });
+    return { places: fromVector, via: "vector" };
+  }
 
-  const started = Date.now();
-  const docs = await db.collection("places").find(filter).toArray();
-  const places = docs.map(asPlace).filter((p): p is Place => Boolean(p));
-  const skipped = docs.length - places.length;
+  if (fromVector) {
+    log.line("mongo.places.vector.empty", { fallback: "find" });
+  }
 
-  log.line("mongo.places.result", {
-    ms: Date.now() - started,
-    docs: docs.length,
-    mapped: places.length,
-    skipped,
-    ids: places.map((p) => p.id),
-  });
-
+  const places = await findPlaces(coll, radiusMiles, db.databaseName);
   const notes = await db.collection("notes").estimatedDocumentCount();
   log.line("mongo.notes", { count: notes });
-
-  return places;
+  return { places, via: "find" };
 }
