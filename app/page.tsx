@@ -5,10 +5,23 @@ import { Tickets } from "./Tickets";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  let tickets: Awaited<ReturnType<typeof dealSaturday>> = [];
+  let tickets: Awaited<ReturnType<typeof dealSaturday>>["tickets"] = [];
+  let retrieve: Awaited<ReturnType<typeof dealSaturday>>["retrieve"] = {
+    source: "seed",
+    via: null,
+    operator: "seed",
+  };
   try {
-    tickets = await dealSaturday();
-    log.line("page.render", { count: tickets.length, ids: tickets.map((t) => t.id) });
+    const dealt = await dealSaturday();
+    tickets = dealt.tickets;
+    retrieve = dealt.retrieve;
+    log.line("page.render", {
+      count: tickets.length,
+      ids: tickets.map((t) => t.id),
+      source: retrieve.source,
+      via: retrieve.via,
+      operator: retrieve.operator,
+    });
   } catch (err) {
     log.error("page.deal.fail", err);
     tickets = [];
@@ -23,7 +36,7 @@ export default async function HomePage() {
           Three Saturday ideas from the driveway. Leave after breakfast, home before dusk.
         </p>
       </header>
-      <Tickets initial={tickets} />
+      <Tickets initial={tickets} retrieve={retrieve} />
     </main>
   );
 }
