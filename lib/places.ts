@@ -10,6 +10,9 @@ export type Place = {
   turnaround: boolean;
   waterCrossing: boolean;
   clayWhenWet: boolean;
+  photo: string;
+  photoAlt: string;
+  credit?: string;
 };
 
 /** Home is 41144 Greenup, KY. Distances from published park listings, not a POI dump. */
@@ -24,6 +27,8 @@ export const PLACES: Place[] = [
     turnaround: true,
     waterCrossing: false,
     clayWhenWet: false,
+    photo: "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/greenbo.jpg",
+    photoAlt: "Buffalo Iron Furnace at Greenbo Lake State Resort Park",
   },
   {
     id: "carter-caves",
@@ -35,6 +40,8 @@ export const PLACES: Place[] = [
     turnaround: true,
     waterCrossing: false,
     clayWhenWet: false,
+    photo: "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/carter-caves.jpg",
+    photoAlt: "Paved park roadway at Carter Caves State Resort Park",
   },
   {
     id: "shawnee-packed",
@@ -46,5 +53,8 @@ export const PLACES: Place[] = [
     turnaround: true,
     waterCrossing: false,
     clayWhenWet: false,
+    photo: "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/shawnee-packed.jpg",
+    photoAlt: "Picnic Point overlook, Shawnee State Forest",
+    credit: "Analogue Kid (CC BY 3.0)",
   },
 ];

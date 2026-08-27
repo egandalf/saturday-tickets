@@ -5,6 +5,9 @@ export type Ticket = {
   title: string;
   surface: Place["surface"];
   daylight: "BACK BEFORE DUSK";
+  photo: string;
+  photoAlt: string;
+  credit?: string;
 };
 
 const HOME_RADIUS_MILES = 150;
@@ -15,11 +18,12 @@ function loadNotes(): string[] {
 }
 
 function retrieve(): Place[] {
-  return PLACES.filter((p) => p.milesFromHome <= HOME_RADIUS_MILES);
+  return PLACES.filter((p) => p.milesFromHome <= HOME_RADIUS_MILES && Boolean(p.photo));
 }
 
 function hardFilter(places: Place[], saturdayStartMinutes = 10 * 60): Place[] {
   return places.filter((p) => {
+    if (!p.photo) return false;
     if (p.surface !== "PAVED" && p.surface !== "PACKED GRAVEL") return false;
     if (!p.turnaround) return false;
     if (p.waterCrossing) return false;
@@ -29,13 +33,20 @@ function hardFilter(places: Place[], saturdayStartMinutes = 10 * 60): Place[] {
   });
 }
 
-function fallbackDeal(filtered: Place[]): Ticket[] {
-  return filtered.slice(0, 3).map((p) => ({
+function toTicket(p: Place): Ticket {
+  return {
     id: p.id,
     title: p.title,
     surface: p.surface,
     daylight: "BACK BEFORE DUSK",
-  }));
+    photo: p.photo,
+    photoAlt: p.photoAlt,
+    credit: p.credit,
+  };
+}
+
+function fallbackDeal(filtered: Place[]): Ticket[] {
+  return filtered.slice(0, 3).map(toTicket);
 }
 
 async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
@@ -92,11 +103,6 @@ export async function dealSaturday(): Promise<Ticket[]> {
   const tickets = ids
     .map((id) => byId.get(id))
     .filter((p): p is Place => Boolean(p))
-    .map((p) => ({
-      id: p.id,
-      title: p.title,
-      surface: p.surface,
-      daylight: "BACK BEFORE DUSK" as const,
-    }));
+    .map(toTicket);
   return tickets.length ? tickets : fallbackDeal(filtered);
 }
