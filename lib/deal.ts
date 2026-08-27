@@ -1,6 +1,9 @@
-import { log, withDeal } from "./log";
+import { log, takeCalls, withDeal } from "./log";
 import { loadPlacesFromAtlas } from "./mongo";
 import { PLACES, type Place } from "./places";
+import type { DealCall } from "./trace";
+
+export type { DealCall };
 
 export type Ticket = {
   id: string;
@@ -26,6 +29,7 @@ export type RetrieveReport = {
 export type DealResult = {
   tickets: Ticket[];
   retrieve: RetrieveReport;
+  calls: DealCall[];
 };
 
 const HOME_RADIUS_MILES = 150;
@@ -270,6 +274,6 @@ export async function dealSaturday(mood?: Mood): Promise<DealResult> {
         count: tickets.length,
       },
     );
-    return { tickets, retrieve: retrievePath };
+    return { tickets, retrieve: retrievePath, calls: takeCalls() };
   });
 }

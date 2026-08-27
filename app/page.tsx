@@ -1,6 +1,7 @@
 import { dealSaturday } from "@/lib/deal";
 import { log } from "@/lib/log";
 import { Tickets } from "./Tickets";
+import type { DealCall } from "@/lib/trace";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,12 @@ export default async function HomePage() {
     atlas: null,
     mood: null,
   };
+  let calls: DealCall[] = [];
   try {
     const dealt = await dealSaturday();
     tickets = dealt.tickets;
     retrieve = dealt.retrieve;
+    calls = dealt.calls;
     log.line("page.render", {
       count: tickets.length,
       ids: tickets.map((t) => t.id),
@@ -36,7 +39,7 @@ export default async function HomePage() {
         <p className="kicker">Saturday tickets</p>
         <h1>Three family Saturdays from the driveway.</h1>
       </header>
-      <Tickets initial={tickets} retrieve={retrieve} />
+      <Tickets initial={tickets} retrieve={retrieve} calls={calls} />
     </main>
   );
 }

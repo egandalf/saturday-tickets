@@ -1,19 +1,32 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+import { SYS_ANSI, systemOf, type DealCall, type Sys } from "./trace";
 
-type Store = { dealId: string };
+export type { DealCall, Sys };
+
+type Store = { dealId: string; calls: DealCall[] };
 
 const store = new AsyncLocalStorage<Store>();
 
 const SECRET_KEY = /pass|pwd|secret|token|key|authorization|credentials|uri/i;
 const VECTOR_KEY = /embedding|vector/i;
+const TRACE_SKIP =
+  /^(mongo\.command|mongo\.ok|mongo\.fail|mongo\.conn|mongo\.pool|mongo\.server|mongo\.topology|mongo\.notes)/;
+
+const RESET = "\x1b[0m";
+const DIM = "\x1b[2m";
 
 export function dealId(): string {
   return store.getStore()?.dealId ?? "--------";
 }
 
 export function withDeal<T>(fn: () => Promise<T>): Promise<T> {
-  return store.run({ dealId: randomUUID().slice(0, 8) }, fn);
+  return store.run({ dealId: randomUUID().slice(0, 8), calls: [] }, fn);
+}
+
+export function takeCalls(): DealCall[] {
+  const current = store.getStore();
+  return current ? current.calls.slice() : [];
 }
 
 export function redactUri(uri: string): string {
@@ -54,14 +67,30 @@ function stamp(): string {
   return new Date().toISOString().slice(11, 23);
 }
 
-function head(scope: string): string {
-  return `tickets │ ${stamp()} │ ${dealId()} │ ${scope}`;
+function paint(sys: Sys, dim = false): string {
+  const body = `${SYS_ANSI[sys]}${sys.padEnd(6)}${RESET}`;
+  return dim ? `${DIM}${body}${RESET}` : body;
 }
 
-function dump(data: unknown): void {
+function head(scope: string): string {
+  const sys = systemOf(scope);
+  return `${paint(sys)} │ ${stamp()} │ ${dealId()} │ ${scope}`;
+}
+
+function record(scope: string, fields?: Record<string, unknown>): void {
+  const current = store.getStore();
+  if (!current || TRACE_SKIP.test(scope)) return;
+  const cleaned = fields
+    ? (sanitize(fields) as Record<string, unknown>)
+    : undefined;
+  current.calls.push({ sys: systemOf(scope), scope, fields: cleaned });
+}
+
+function dump(scope: string, data: unknown): void {
+  const sys = systemOf(scope);
   const text = JSON.stringify(sanitize(data), null, 2);
   for (const line of text.split("\n")) {
-    console.log(`tickets │            │ ${dealId()} │   ${line}`);
+    console.log(`${paint(sys, true)} │            │ ${dealId()} │   ${line}`);
   }
 }
 
@@ -80,20 +109,23 @@ function kv(fields: Record<string, unknown>): string {
 
 export const log = {
   line(scope: string, fields?: Record<string, unknown>) {
+    record(scope, fields);
     const extra = fields ? `  ${kv(fields)}` : "";
     console.log(`${head(scope)}${extra}`);
   },
   json(scope: string, data: unknown, fields?: Record<string, unknown>) {
     log.line(scope, fields);
-    dump(data);
+    dump(scope, data);
   },
   error(scope: string, err: unknown, fields?: Record<string, unknown>) {
+    record(scope, fields);
     const message = err instanceof Error ? err.message : String(err);
     const name = err instanceof Error ? err.name : "Error";
     console.error(`${head(scope)}  ${kv({ ...fields, name, message })}`);
     if (err instanceof Error && err.stack) {
+      const sys = systemOf(scope);
       for (const line of err.stack.split("\n").slice(0, 8)) {
-        console.error(`tickets │            │ ${dealId()} │   ${line.trim()}`);
+        console.error(`${paint(sys, true)} │            │ ${dealId()} │   ${line.trim()}`);
       }
     }
   },
