@@ -15,11 +15,13 @@ export default async function HomePage() {
     mood: null,
   };
   let calls: DealCall[] = [];
+  let threadId = "";
   try {
     const dealt = await dealSaturday();
     tickets = dealt.tickets;
     retrieve = dealt.retrieve;
     calls = dealt.calls;
+    threadId = dealt.threadId;
     log.line("page.render", {
       count: tickets.length,
       ids: tickets.map((t) => t.id),
@@ -27,6 +29,7 @@ export default async function HomePage() {
       via: retrieve.via,
       operator: retrieve.operator,
       atlas: retrieve.atlas,
+      threadId,
     });
   } catch (err) {
     log.error("page.deal.fail", err);
@@ -35,7 +38,7 @@ export default async function HomePage() {
 
   return (
     <main className="deck">
-      <Tickets initial={tickets} retrieve={retrieve} calls={calls} />
+      <Tickets initial={tickets} retrieve={retrieve} calls={calls} threadId={threadId} />
     </main>
   );
 }

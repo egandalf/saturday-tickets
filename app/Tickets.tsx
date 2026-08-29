@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { SYS_COLOR, type DealCall } from "@/lib/trace";
 
 const MOODS = ["Lake", "Woods", "Town", "History"] as const;
@@ -25,6 +25,13 @@ type Retrieve = {
   operator: "$vectorSearch" | "find" | "seed";
   atlas: { n: number; withCredit: number } | null;
   mood: string | null;
+};
+
+type DealPayload = {
+  tickets?: Ticket[];
+  retrieve?: Retrieve;
+  calls?: DealCall[];
+  threadId?: string;
 };
 
 function familyLede(count: number): string {
@@ -75,21 +82,47 @@ export function Tickets({
   initial,
   retrieve,
   calls: initialCalls,
+  threadId: initialThreadId,
 }: {
   initial: Ticket[];
   retrieve: Retrieve;
   calls: DealCall[];
+  threadId: string;
 }) {
   const [tickets, setTickets] = useState(initial);
   const [path, setPath] = useState(retrieve);
   const [calls, setCalls] = useState(initialCalls);
   const [mood, setMood] = useState<MoodLabel | null>(null);
+  const [threadId, setThreadId] = useState(initialThreadId);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function applyDeal(label: string, data: DealPayload) {
+    if (data.retrieve) setPath(data.retrieve);
+    const nextTickets = data.tickets?.length ? data.tickets : [];
+    const nextCalls = data.calls ?? [];
+    if (typeof data.threadId === "string" && data.threadId) {
+      setThreadId(data.threadId);
+    }
+    if (nextTickets.length) {
+      setTickets(nextTickets);
+      setCalls(nextCalls);
+      printTrace(label, nextCalls, nextTickets);
+    } else {
+      console.log(
+        `%cCLIENT%c  fetch.empty`,
+        `color:${SYS_COLOR.CLIENT};font-weight:700;font-family:ui-monospace,monospace`,
+        "color:#c8c8c8;font-family:ui-monospace,monospace",
+      );
+    }
+  }
 
   useEffect(() => {
     if (mood === null && initial.length) {
       setTickets(initial);
       setPath(retrieve);
       setCalls(initialCalls);
+      setThreadId(initialThreadId);
       printTrace("thursday notes", initialCalls, initial);
       return;
     }
@@ -101,22 +134,7 @@ export function Tickets({
     );
     fetch(url, { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { tickets?: Ticket[]; retrieve?: Retrieve; calls?: DealCall[] }) => {
-        if (data.retrieve) setPath(data.retrieve);
-        const nextTickets = data.tickets?.length ? data.tickets : [];
-        const nextCalls = data.calls ?? [];
-        if (nextTickets.length) {
-          setTickets(nextTickets);
-          setCalls(nextCalls);
-          printTrace(mood ? mood.toLowerCase() : "thursday notes", nextCalls, nextTickets);
-        } else {
-          console.log(
-            `%cCLIENT%c  fetch.empty`,
-            `color:${SYS_COLOR.CLIENT};font-weight:700;font-family:ui-monospace,monospace`,
-            "color:#c8c8c8;font-family:ui-monospace,monospace",
-          );
-        }
-      })
+      .then((data: DealPayload) => applyDeal(mood ? mood.toLowerCase() : "thursday notes", data))
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
         console.error(
@@ -125,7 +143,47 @@ export function Tickets({
           "color:#c8c8c8;font-family:ui-monospace,monospace",
         );
       });
-  }, [mood, initial, retrieve, initialCalls]);
+  }, [mood, initial, retrieve, initialCalls, initialThreadId]);
+
+  async function postDeal(body: Record<string, unknown>, label: string) {
+    if (!threadId || busy) return;
+    setBusy(true);
+    console.log(
+      `%cCLIENT%c  POST /api/deal  ${label}`,
+      `color:${SYS_COLOR.CLIENT};font-weight:700;font-family:ui-monospace,monospace`,
+      "color:#c8c8c8;font-family:ui-monospace,monospace",
+    );
+    try {
+      const res = await fetch("/api/deal", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId, mood: mood ? mood.toLowerCase() : undefined, ...body }),
+      });
+      applyDeal(label, (await res.json()) as DealPayload);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(
+        `%cCLIENT%c  post.fail  ${message}`,
+        `color:${SYS_COLOR.CLIENT};font-weight:700;font-family:ui-monospace,monospace`,
+        "color:#c8c8c8;font-family:ui-monospace,monospace",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onSkip(slot: number) {
+    void postDeal({ slot }, `skip ${slot}`);
+  }
+
+  async function onNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = note.trim();
+    if (!text || !threadId || busy) return;
+    await postDeal({ note: text }, "change this deal");
+    setNote("");
+  }
 
   return (
     <>
@@ -157,15 +215,27 @@ export function Tickets({
         data-atlas-n={path.atlas?.n ?? ""}
         data-atlas-credits={path.atlas?.withCredit ?? ""}
       >
-        {tickets.map((ticket) => (
-          <article className="ticket" key={ticket.id}>
-            <img className="photo" src={ticket.photo} alt={ticket.photoAlt} />
-            <div className="ticket-body">
-              <h2>{ticket.title}</h2>
-              <div className="chips">
-                <span className="chip">{ticket.surface}</span>
-                <span className="chip">{ticket.daylight}</span>
+        {tickets.map((ticket, slot) => (
+          <article className="ticket" key={`${slot}-${ticket.id}`}>
+            <div className="ticket-photo">
+              <img className="photo" src={ticket.photo} alt={ticket.photoAlt} />
+              <button
+                type="button"
+                className="skip"
+                onClick={() => onSkip(slot)}
+                disabled={busy || !threadId}
+              >
+                Skip
+              </button>
+              <div className="ticket-overlay">
+                <h2>{ticket.title}</h2>
+                <div className="chips">
+                  <span className="chip">{ticket.surface}</span>
+                  <span className="chip">{ticket.daylight}</span>
+                </div>
               </div>
+            </div>
+            <div className="ticket-body">
               <p className="facts">
                 {ticket.drive} · {ticket.onSite} · {ticket.leaveBy}
               </p>
@@ -173,6 +243,23 @@ export function Tickets({
             </div>
           </article>
         ))}
+      </section>
+      <section className="revise" aria-label="Change this deal">
+        <p className="kicker">Change this deal</p>
+        <form className="revise-row" onSubmit={onNote}>
+          <input
+            type="text"
+            name="note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Too far, already been, something else"
+            aria-label="Change this deal"
+            autoComplete="off"
+          />
+          <button className="go" type="submit" disabled={busy || !threadId || !note.trim()}>
+            Go
+          </button>
+        </form>
       </section>
     </>
   );
