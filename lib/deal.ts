@@ -1,6 +1,6 @@
 import { log, takeCalls, withDeal } from "./log";
 import { loadPlacesFromAtlas } from "./mongo";
-import { PLACES, SIGNED_LAKE_IDS, SIGNED_TOWN_IDS, type Place } from "./places";
+import { PLACES, signedKind, type Place } from "./places";
 import { saturdaySunset, type SaturdaySunset } from "./sun";
 import type { DealCall } from "./trace";
 
@@ -42,21 +42,9 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 
-const NUDGE: Record<Mood, string> = {
-  lake: "Prefer a lake or shore Saturday.",
-  woods: "Prefer woods, forest, trail, or ridge.",
-  town: "Prefer a town, murals, or park in town.",
-  history: "Prefer history: furnace, mound, or covered bridge.",
-};
-
 export function parseMood(value: string | null): Mood | undefined {
   const s = value?.trim().toLowerCase();
   return MOODS.includes(s as Mood) ? (s as Mood) : undefined;
-}
-
-function queryFor(mood?: Mood): string {
-  if (!mood || mood === "town" || mood === "lake") return FAMILY_QUERY;
-  return `${FAMILY_QUERY} ${NUDGE[mood]}`;
 }
 
 function loadNotes(): string[] {
@@ -88,17 +76,16 @@ function reportOf(
   return { source: "seed", via: null, operator: "seed", atlas: null, mood: moodValue };
 }
 
-async function retrieve(mood?: Mood): Promise<{
+async function retrieve(): Promise<{
   places: Place[];
   source: "atlas" | "seed";
   via?: "vector" | "find";
   reason?: string;
 }> {
-  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, queryFor(mood));
+  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, FAMILY_QUERY);
   if (fromAtlas && fromAtlas.places.length) {
     log.line("retrieve.atlas", {
       via: fromAtlas.via,
-      mood: mood ?? "none",
       count: fromAtlas.places.length,
       withCredit: fromAtlas.places.filter((p) => Boolean(p.credit)).length,
       ids: fromAtlas.places.map((p) => p.id),
@@ -111,7 +98,6 @@ async function retrieve(mood?: Mood): Promise<{
   const reason = fromAtlas ? "atlas places empty" : "atlas unavailable";
   log.line("retrieve.seed", {
     reason,
-    mood: mood ?? "none",
     count: seed.length,
     ids: seed.map((p) => p.id),
     radius: HOME_RADIUS_MILES,
@@ -149,17 +135,11 @@ function hardFilter(places: Place[], dusk: SaturdaySunset, saturdayStartMinutes 
 }
 
 function isSignedKind(p: Place, mood: Mood): boolean {
-  if (mood === "town") {
-    return p.kind === "town" || (SIGNED_TOWN_IDS as readonly string[]).includes(p.id);
-  }
-  if (mood === "lake") {
-    return p.kind === "lake" || (SIGNED_LAKE_IDS as readonly string[]).includes(p.id);
-  }
-  return true;
+  return signedKind(p.id) === mood;
 }
 
 function kindFilter(places: Place[], mood?: Mood): Place[] {
-  if (mood !== "town" && mood !== "lake") return places;
+  if (!mood) return places;
   const kept: Place[] = [];
   const dropped: string[] = [];
   for (const p of places) {
@@ -302,7 +282,7 @@ export async function dealSaturday(mood?: Mood): Promise<DealResult> {
       dusk: dusk.clock,
     });
     loadNotes();
-    const retrieved = await retrieve(mood);
+    const retrieved = await retrieve();
     const retrievePath = reportOf(retrieved, retrieved.places, mood);
     const filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
     const ids = await rankWithGemini(filtered);

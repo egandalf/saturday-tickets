@@ -1,19 +1,47 @@
 export type Surface = "PAVED" | "PACKED GRAVEL";
 export type Kind = "lake" | "woods" | "town" | "history";
 
-/** Signed town pins: murals and river-town streets. Ritter is a city park until signed. */
+/** Signed town pins: murals and river-town streets. Ritter is Woods. */
 export const SIGNED_TOWN_IDS = ["ashland-floodwall", "portsmouth-murals"] as const;
 
-/** Signed water pins. Greenbo stays off until the photo is the lake, not the furnace. */
+/** Signed water pins. Greenbo stays on Lake (furnace crop is fine). Twin Knobs is Woods. Jenny Wiley is Dewey Lake. */
 export const SIGNED_LAKE_IDS = [
+  "greenbo",
   "grayson-lake",
   "vesuvius-beach",
   "beech-fork",
   "yatesville",
   "east-lynn",
-  "twin-knobs",
   "paintsville-lake",
+  "jenny-wiley",
 ] as const;
+
+/** Signed woods pins. Twin Knobs is a camp pad, not a lake. */
+export const SIGNED_WOODS_IDS = [
+  "jesse-stuart",
+  "carter-caves",
+  "shawnee-packed",
+  "shawnee-lodge",
+  "ritter-park",
+  "twin-knobs",
+  "kanawha",
+  "ash-cave",
+  "natural-bridge",
+] as const;
+
+/** Signed history pins. Do not relabel a covered bridge as a lake. */
+export const SIGNED_HISTORY_IDS = ["bennetts-mill", "oldtown-bridge", "serpent-mound"] as const;
+
+const SIGNED_KIND: Record<string, Kind> = {
+  ...Object.fromEntries(SIGNED_TOWN_IDS.map((id) => [id, "town" as const])),
+  ...Object.fromEntries(SIGNED_LAKE_IDS.map((id) => [id, "lake" as const])),
+  ...Object.fromEntries(SIGNED_WOODS_IDS.map((id) => [id, "woods" as const])),
+  ...Object.fromEntries(SIGNED_HISTORY_IDS.map((id) => [id, "history" as const])),
+};
+
+export function signedKind(id: string): Kind | undefined {
+  return SIGNED_KIND[id];
+}
 
 export type Place = {
   id: string;
