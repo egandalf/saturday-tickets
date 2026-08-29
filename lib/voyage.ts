@@ -3,10 +3,15 @@ import { log } from "./log";
 const MODEL = "voyage-3-lite";
 
 type GlobalVoyage = {
-  __ticketsQueryEmbed?: { text: string; vec: number[] };
+  __ticketsQueryEmbeds?: Map<string, number[]>;
 };
 
 const g = globalThis as typeof globalThis & GlobalVoyage;
+
+function cache(): Map<string, number[]> {
+  if (!g.__ticketsQueryEmbeds) g.__ticketsQueryEmbeds = new Map();
+  return g.__ticketsQueryEmbeds;
+}
 
 async function requestEmbed(key: string, text: string): Promise<number[] | null> {
   const started = Date.now();
@@ -37,9 +42,10 @@ async function requestEmbed(key: string, text: string): Promise<number[] | null>
 }
 
 export async function embedQuery(text: string): Promise<number[] | null> {
-  if (g.__ticketsQueryEmbed?.text === text) {
-    log.line("voyage.cache", { dims: g.__ticketsQueryEmbed.vec.length, model: MODEL });
-    return g.__ticketsQueryEmbed.vec;
+  const hit = cache().get(text);
+  if (hit) {
+    log.line("voyage.cache", { dims: hit.length, model: MODEL });
+    return hit;
   }
 
   const key = process.env.VOYAGE_API_KEY?.trim();
@@ -48,10 +54,9 @@ export async function embedQuery(text: string): Promise<number[] | null> {
     return null;
   }
 
-  const first = await requestEmbed(key, text);
-  const vec = first ?? (await requestEmbed(key, text));
+  const vec = await requestEmbed(key, text);
   if (!vec) return null;
 
-  g.__ticketsQueryEmbed = { text, vec };
+  cache().set(text, vec);
   return vec;
 }

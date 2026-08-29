@@ -1,4 +1,4 @@
-import { MongoClient, type Collection, type Document } from "mongodb";
+import { MongoClient, type Collection, type Db, type Document } from "mongodb";
 import { dbFromUri, hostFromUri, log, redactUri, sanitize } from "./log";
 import { signedTags, type Kind, type Place, type Surface } from "./places";
 import { embedQuery } from "./voyage";
@@ -12,6 +12,7 @@ const g = globalThis as typeof globalThis & GlobalMongo;
 
 const SURFACES: Surface[] = ["PAVED", "PACKED GRAVEL"];
 const VECTOR_INDEX = "places_vector";
+const EMBED_MODEL = "voyage-3-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 
@@ -113,6 +114,24 @@ async function connect(): Promise<MongoClient | null> {
   }
 }
 
+async function cachedQueryEmbed(database: Db, text: string): Promise<number[] | null> {
+  const doc = await database.collection("query_embeds").findOne({ text, model: EMBED_MODEL });
+  const vec = doc?.vec;
+  if (Array.isArray(vec) && vec.length) {
+    log.line("voyage.mongo.cache", { dims: vec.length, model: EMBED_MODEL });
+    return vec as number[];
+  }
+  return null;
+}
+
+async function saveQueryEmbed(database: Db, text: string, vec: number[]): Promise<void> {
+  await database.collection("query_embeds").updateOne(
+    { text, model: EMBED_MODEL },
+    { $set: { text, model: EMBED_MODEL, vec, dims: vec.length, updatedAt: new Date() } },
+    { upsert: true },
+  );
+}
+
 function asTags(doc: Document): Kind[] | undefined {
   if (typeof doc.id !== "string") return undefined;
   const signed = signedTags(doc.id);
@@ -174,9 +193,17 @@ async function vectorPlaces(
   coll: Collection<Document>,
   radiusMiles: number,
   queryText: string,
-  db: string,
+  database: Db,
 ): Promise<Place[] | null> {
-  const queryVector = await embedQuery(queryText);
+  let queryVector = await embedQuery(queryText);
+  if (!queryVector) queryVector = await cachedQueryEmbed(database, queryText);
+  else {
+    try {
+      await saveQueryEmbed(database, queryText, queryVector);
+    } catch (err) {
+      log.error("voyage.mongo.cache.save.fail", err);
+    }
+  }
   if (!queryVector) return null;
 
   const pipeline: Document[] = [
@@ -196,7 +223,7 @@ async function vectorPlaces(
   log.json(
     "mongo.places.vector",
     { index: VECTOR_INDEX, radius: radiusMiles, numCandidates: 44, limit: 22 },
-    { db, coll: coll.collectionName },
+    { db: database.databaseName, coll: coll.collectionName },
   );
 
   const started = Date.now();
@@ -233,12 +260,12 @@ export async function loadPlacesFromAtlas(
   const client = await connect();
   if (!client) return null;
 
-  const db = client.db(dbName(connection));
-  const coll = db.collection("places");
+  const database = client.db(dbName(connection));
+  const coll = database.collection("places");
 
-  const fromVector = await vectorPlaces(coll, radiusMiles, queryText, db.databaseName);
+  const fromVector = await vectorPlaces(coll, radiusMiles, queryText, database);
   if (fromVector && fromVector.length) {
-    const notes = await db.collection("notes").estimatedDocumentCount();
+    const notes = await database.collection("notes").estimatedDocumentCount();
     log.line("mongo.notes", { count: notes });
     return { places: fromVector, via: "vector" };
   }
@@ -247,8 +274,8 @@ export async function loadPlacesFromAtlas(
     log.line("mongo.places.vector.empty", { fallback: "find" });
   }
 
-  const places = await findPlaces(coll, radiusMiles, db.databaseName);
-  const notes = await db.collection("notes").estimatedDocumentCount();
+  const places = await findPlaces(coll, radiusMiles, database.databaseName);
+  const notes = await database.collection("notes").estimatedDocumentCount();
   log.line("mongo.notes", { count: notes });
   return { places, via: "find" };
 }

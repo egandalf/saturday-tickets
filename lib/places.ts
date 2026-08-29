@@ -16,7 +16,7 @@ export const SIGNED_LAKE_IDS = [
   "jenny-wiley",
 ] as const;
 
-/** Signed woods pins. Greenbo is also woods. Twin Knobs is a camp pad, not a lake. */
+/** Signed woods pins. Greenbo is also woods. Twin Knobs is a camp pad, not a lake. Atlas id is kanawha-entry. */
 export const SIGNED_WOODS_IDS = [
   "greenbo",
   "jesse-stuart",
@@ -25,7 +25,7 @@ export const SIGNED_WOODS_IDS = [
   "shawnee-lodge",
   "ritter-park",
   "twin-knobs",
-  "kanawha",
+  "kanawha-entry",
   "ash-cave",
   "natural-bridge",
 ] as const;

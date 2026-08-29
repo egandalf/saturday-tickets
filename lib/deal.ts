@@ -42,21 +42,9 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 
-const NUDGE: Record<Mood, string> = {
-  lake: "Prefer a lake or shore Saturday.",
-  woods: "Prefer woods, forest, trail, or ridge.",
-  town: "Prefer a town, murals, or park in town.",
-  history: "Prefer history: furnace, mound, or covered bridge.",
-};
-
 export function parseMood(value: string | null): Mood | undefined {
   const s = value?.trim().toLowerCase();
   return MOODS.includes(s as Mood) ? (s as Mood) : undefined;
-}
-
-function queryFor(mood?: Mood): string {
-  if (!mood) return FAMILY_QUERY;
-  return `${FAMILY_QUERY} ${NUDGE[mood]}`;
 }
 
 function loadNotes(): string[] {
@@ -94,7 +82,7 @@ async function retrieve(mood?: Mood): Promise<{
   via?: "vector" | "find";
   reason?: string;
 }> {
-  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, queryFor(mood));
+  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, FAMILY_QUERY);
   if (fromAtlas && fromAtlas.places.length) {
     log.line("retrieve.atlas", {
       via: fromAtlas.via,
@@ -207,6 +195,17 @@ function fallbackDeal(filtered: Place[], duskMinutes: number): Ticket[] {
   return tickets;
 }
 
+async function geminiGenerate(key: string, body: unknown): Promise<Response> {
+  return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": key,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
@@ -252,17 +251,11 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   };
 
   const started = Date.now();
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": key,
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  let res = await geminiGenerate(key, body);
+  if (res.status === 429) {
+    log.line("gemini.http.retry", { status: 429 });
+    res = await geminiGenerate(key, body);
+  }
   const ms = Date.now() - started;
   if (!res.ok) {
     const text = await res.text();
