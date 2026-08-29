@@ -7,16 +7,22 @@ Spare-time PoC. Public repo. Separate Vercel project and Blob store from `ky-dri
 ## Stack
 
 - Next.js on Vercel Hobby
-- Python LangGraph (four nodes) later, not in this shell
-- MongoDB Atlas M0: `places`, `notes`, LangGraph checkpointer
+- Four TypeScript nodes behind `/api/deal`: notes, retrieve, filter, deal
+- MongoDB Atlas M0: `places`, `notes`, `checkpoints`, cached Voyage query embed
+- No Voyage spend. Rank inside the signed tag set with the cached family embed. Charge stays off the ticket.
 
 ## Card contract
 
 Chips on the ticket: photo, surface (`PAVED` or `PACKED GRAVEL`), daylight (`BACK BEFORE DUSK`).
 
-Hard filters, not badges: turnaround, no water crossing, clay-when-wet refuse.
+Hard filters, not badges: turnaround, no water crossing, clay-when-wet refuse. Kind tags are membership only and live in code.
 
 Visual: graphite, chalk type, Solar Yellow `#ffac00` only. No Rivian logo.
+
+## Graph test
+
+1. `GET /api/deal` deals three and returns `threadId`.
+2. `POST /api/deal` with `{ "threadId", "note": "swap the middle one for food" }` loads the checkpoint, swaps the middle ticket for the next unused survivor in that tagged set, and writes Atlas `checkpoints` again. Food is not a signed tag, so it does not invent a restaurant.
 
 ## Logs
 

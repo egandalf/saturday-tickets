@@ -114,6 +114,14 @@ async function connect(): Promise<MongoClient | null> {
   }
 }
 
+async function database(): Promise<Db | null> {
+  const connection = uri();
+  if (!connection) return null;
+  const client = await connect();
+  if (!client) return null;
+  return client.db(dbName(connection));
+}
+
 async function cachedQueryEmbed(database: Db, text: string): Promise<number[] | null> {
   const doc = await database.collection("query_embeds").findOne({ text, model: EMBED_MODEL });
   const vec = doc?.vec;
@@ -260,12 +268,12 @@ export async function loadPlacesFromAtlas(
   const client = await connect();
   if (!client) return null;
 
-  const database = client.db(dbName(connection));
-  const coll = database.collection("places");
+  const db = client.db(dbName(connection));
+  const coll = db.collection("places");
 
-  const fromVector = await vectorPlaces(coll, radiusMiles, queryText, database);
+  const fromVector = await vectorPlaces(coll, radiusMiles, queryText, db);
   if (fromVector && fromVector.length) {
-    const notes = await database.collection("notes").estimatedDocumentCount();
+    const notes = await db.collection("notes").estimatedDocumentCount();
     log.line("mongo.notes", { count: notes });
     return { places: fromVector, via: "vector" };
   }
@@ -274,8 +282,49 @@ export async function loadPlacesFromAtlas(
     log.line("mongo.places.vector.empty", { fallback: "find" });
   }
 
-  const places = await findPlaces(coll, radiusMiles, database.databaseName);
-  const notes = await database.collection("notes").estimatedDocumentCount();
+  const places = await findPlaces(coll, radiusMiles, db.databaseName);
+  const notes = await db.collection("notes").estimatedDocumentCount();
   log.line("mongo.notes", { count: notes });
   return { places, via: "find" };
+}
+
+function noteText(doc: Document): string | null {
+  if (typeof doc.text === "string" && doc.text.trim()) return doc.text.trim();
+  if (typeof doc.body === "string" && doc.body.trim()) return doc.body.trim();
+  if (typeof doc.note === "string" && doc.note.trim()) return doc.note.trim();
+  return null;
+}
+
+export async function loadNotesFromAtlas(): Promise<string[]> {
+  const db = await database();
+  if (!db) {
+    log.line("load.notes", { source: "unset", count: 0 });
+    return [];
+  }
+  const docs = await db.collection("notes").find({}).sort({ at: -1 }).limit(20).toArray();
+  const notes = docs.map(noteText).filter((n): n is string => Boolean(n));
+  log.line("load.notes", { source: "atlas", count: notes.length });
+  return notes;
+}
+
+export async function appendNote(text: string): Promise<void> {
+  const db = await database();
+  if (!db) return;
+  await db.collection("notes").insertOne({ text, at: new Date() });
+}
+
+export async function loadCheckpoint(threadId: string): Promise<Document | null> {
+  const db = await database();
+  if (!db) return null;
+  return db.collection("checkpoints").findOne({ threadId });
+}
+
+export async function saveCheckpoint(threadId: string, state: Document): Promise<void> {
+  const db = await database();
+  if (!db) return;
+  await db.collection("checkpoints").updateOne(
+    { threadId },
+    { $set: { ...state, threadId, updatedAt: new Date() } },
+    { upsert: true },
+  );
 }
