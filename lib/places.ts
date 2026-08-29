@@ -16,8 +16,9 @@ export const SIGNED_LAKE_IDS = [
   "jenny-wiley",
 ] as const;
 
-/** Signed woods pins. Twin Knobs is a camp pad, not a lake. */
+/** Signed woods pins. Greenbo is also woods. Twin Knobs is a camp pad, not a lake. */
 export const SIGNED_WOODS_IDS = [
+  "greenbo",
   "jesse-stuart",
   "carter-caves",
   "shawnee-packed",
@@ -32,22 +33,30 @@ export const SIGNED_WOODS_IDS = [
 /** Signed history pins. Do not relabel a covered bridge as a lake. */
 export const SIGNED_HISTORY_IDS = ["bennetts-mill", "oldtown-bridge", "serpent-mound"] as const;
 
-const SIGNED_KIND: Record<string, Kind> = {
-  ...Object.fromEntries(SIGNED_TOWN_IDS.map((id) => [id, "town" as const])),
-  ...Object.fromEntries(SIGNED_LAKE_IDS.map((id) => [id, "lake" as const])),
-  ...Object.fromEntries(SIGNED_WOODS_IDS.map((id) => [id, "woods" as const])),
-  ...Object.fromEntries(SIGNED_HISTORY_IDS.map((id) => [id, "history" as const])),
-};
+const SIGNED_TAGS: Record<string, Kind[]> = {};
 
-export function signedKind(id: string): Kind | undefined {
-  return SIGNED_KIND[id];
+function tagIds(ids: readonly string[], tag: Kind): void {
+  for (const id of ids) {
+    const current = SIGNED_TAGS[id] ?? [];
+    if (!current.includes(tag)) current.push(tag);
+    SIGNED_TAGS[id] = current;
+  }
+}
+
+tagIds(SIGNED_TOWN_IDS, "town");
+tagIds(SIGNED_LAKE_IDS, "lake");
+tagIds(SIGNED_WOODS_IDS, "woods");
+tagIds(SIGNED_HISTORY_IDS, "history");
+
+export function signedTags(id: string): Kind[] {
+  return SIGNED_TAGS[id] ?? [];
 }
 
 export type Place = {
   id: string;
   title: string;
   surface: Surface;
-  kind?: Kind;
+  tags?: Kind[];
   milesFromHome: number;
   minutesOut: number;
   onSiteMinutes: number;

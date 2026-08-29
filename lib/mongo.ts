@@ -1,6 +1,6 @@
 import { MongoClient, type Collection, type Document } from "mongodb";
 import { dbFromUri, hostFromUri, log, redactUri, sanitize } from "./log";
-import { signedKind, type Kind, type Place, type Surface } from "./places";
+import { signedTags, type Kind, type Place, type Surface } from "./places";
 import { embedQuery } from "./voyage";
 
 type GlobalMongo = {
@@ -11,7 +11,6 @@ type GlobalMongo = {
 const g = globalThis as typeof globalThis & GlobalMongo;
 
 const SURFACES: Surface[] = ["PAVED", "PACKED GRAVEL"];
-const KINDS: Kind[] = ["lake", "woods", "town", "history"];
 const VECTOR_INDEX = "places_vector";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
@@ -114,13 +113,10 @@ async function connect(): Promise<MongoClient | null> {
   }
 }
 
-function asKind(doc: Document): Kind | undefined {
-  if (typeof doc.id === "string") {
-    const signed = signedKind(doc.id);
-    if (signed) return signed;
-  }
-  if (KINDS.includes(doc.kind as Kind)) return doc.kind as Kind;
-  return undefined;
+function asTags(doc: Document): Kind[] | undefined {
+  if (typeof doc.id !== "string") return undefined;
+  const signed = signedTags(doc.id);
+  return signed.length ? signed : undefined;
 }
 
 function asPlace(doc: Document): Place | null {
@@ -134,7 +130,7 @@ function asPlace(doc: Document): Place | null {
     id: doc.id,
     title: doc.title,
     surface,
-    kind: asKind(doc),
+    tags: asTags(doc),
     milesFromHome: doc.milesFromHome,
     minutesOut: doc.minutesOut,
     onSiteMinutes: doc.onSiteMinutes,
