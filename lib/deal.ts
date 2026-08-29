@@ -328,12 +328,27 @@ function asTickets(value: unknown): Ticket[] {
 function rankTickets(filtered: Place[], duskMinutes: number, ids: string[] | null): Ticket[] {
   if (!ids) return fallbackDeal(filtered, duskMinutes);
   const byId = new Map(filtered.map((p) => [p.id, p]));
-  const tickets = ids
-    .map((id) => byId.get(id))
-    .filter((p): p is Place => Boolean(p))
-    .map((p) => toTicket(p, duskMinutes));
+  const used = new Set<string>();
+  const tickets: Ticket[] = [];
+  for (const id of ids) {
+    const place = byId.get(id);
+    if (!place || used.has(place.id)) continue;
+    tickets.push(toTicket(place, duskMinutes));
+    used.add(place.id);
+    if (tickets.length === 3) break;
+  }
+  for (const place of filtered) {
+    if (tickets.length === 3) break;
+    if (used.has(place.id)) continue;
+    tickets.push(toTicket(place, duskMinutes));
+    used.add(place.id);
+  }
   if (!tickets.length) return fallbackDeal(filtered, duskMinutes);
-  log.line("deal.ranked", { ids: tickets.map((t) => t.id) });
+  log.line("deal.ranked", {
+    ids: tickets.map((ticket) => ticket.id),
+    count: tickets.length,
+    padded: tickets.length > ids.length,
+  });
   return tickets;
 }
 
