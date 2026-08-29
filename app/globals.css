@@ -97,23 +97,6 @@ h1, h2 {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
-.photo {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  display: block;
-  background: #2e2e2e;
-}
-
-.ticket-body {
-  padding: 16px 16px 18px;
-}
-
-.ticket h2 {
-  font-size: 1.45rem;
-  margin-bottom: 10px;
-}
-
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -142,4 +125,109 @@ h1, h2 {
   margin: 8px 0 0;
   font-size: 0.72rem;
   opacity: 0.55;
+}
+
+.ticket-photo {
+  position: relative;
+}
+
+.photo {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+  background: #2e2e2e;
+}
+
+.skip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: #2a2a2a;
+  border: none;
+  border-radius: 2px;
+  color: var(--chalk);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.skip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ticket-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 28px 16px 14px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+}
+
+.ticket-overlay h2 {
+  font-size: 1.35rem;
+  margin: 0 0 8px;
+  color: #fff;
+}
+
+.ticket-overlay .chip {
+  border-color: rgba(255, 255, 255, 0.85);
+  color: #fff;
+}
+
+.ticket-body {
+  padding: 10px 16px 16px;
+}
+
+.revise {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+
+.revise-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.revise-row input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--chalk);
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 8px 0;
+  outline: none;
+}
+
+.revise-row input::placeholder {
+  color: var(--muted);
+}
+
+.go {
+  background: none;
+  border: none;
+  color: var(--chalk);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.go:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
