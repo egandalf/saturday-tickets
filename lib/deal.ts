@@ -1,5 +1,6 @@
+import { randomUUID } from "crypto";
 import { log, takeCalls, withDeal } from "./log";
-import { loadPlacesFromAtlas } from "./mongo";
+import { appendNote, loadCheckpoint, loadNotesFromAtlas, saveCheckpoint } from "./mongo";
 import { PLACES, signedTags, type Place } from "./places";
 import { saturdaySunset, type SaturdaySunset } from "./sun";
 import type { DealCall } from "./trace";
@@ -34,6 +35,8 @@ export type DealResult = {
   tickets: Ticket[];
   retrieve: RetrieveReport;
   calls: DealCall[];
+  threadId: string;
+  nodes: string[];
 };
 
 const HOME_RADIUS_MILES = 150;
@@ -41,16 +44,17 @@ const SATURDAY_START = 10 * 60;
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
+const EMPTY_RETRIEVE: RetrieveReport = {
+  source: "seed",
+  via: null,
+  operator: "seed",
+  atlas: null,
+  mood: null,
+};
 
-export function parseMood(value: string | null): Mood | undefined {
+export function parseMood(value: string | null | undefined): Mood | undefined {
   const s = value?.trim().toLowerCase();
   return MOODS.includes(s as Mood) ? (s as Mood) : undefined;
-}
-
-function loadNotes(): string[] {
-  const notes: string[] = [];
-  log.line("load.notes", { source: "empty", count: notes.length });
-  return notes;
 }
 
 function coverage(places: Place[]): { n: number; withCredit: number } {
@@ -84,7 +88,7 @@ async function retrieve(mood?: Mood): Promise<{
 }> {
   const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, FAMILY_QUERY);
   if (fromAtlas && fromAtlas.places.length) {
-    log.line("retrieve.atlas", {
+    log.line("graph.retrieve", {
       via: fromAtlas.via,
       mood: mood ?? "none",
       count: fromAtlas.places.length,
@@ -97,7 +101,8 @@ async function retrieve(mood?: Mood): Promise<{
 
   const seed = PLACES.filter((p) => p.milesFromHome <= HOME_RADIUS_MILES && Boolean(p.photo));
   const reason = fromAtlas ? "atlas places empty" : "atlas unavailable";
-  log.line("retrieve.seed", {
+  log.line("graph.retrieve", {
+    source: "seed",
     reason,
     mood: mood ?? "none",
     count: seed.length,
@@ -277,34 +282,146 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   return ids.length ? ids : null;
 }
 
-export async function dealSaturday(mood?: Mood): Promise<DealResult> {
+async function dealThree(filtered: Place[], duskMinutes: number): Promise<Ticket[]> {
+  const ids = await rankWithGemini(filtered);
+  if (!ids) return fallbackDeal(filtered, duskMinutes);
+  const byId = new Map(filtered.map((p) => [p.id, p]));
+  const tickets = ids
+    .map((id) => byId.get(id))
+    .filter((p): p is Place => Boolean(p))
+    .map((p) => toTicket(p, duskMinutes));
+  if (!tickets.length) return fallbackDeal(filtered, duskMinutes);
+  log.line("graph.deal", { ids: tickets.map((t) => t.id) });
+  return tickets;
+}
+
+function wantsSwapMiddle(note?: string): boolean {
+  return Boolean(note && /swap the middle/i.test(note));
+}
+
+function swapMiddle(filtered: Place[], tickets: Ticket[], duskMinutes: number): Ticket[] {
+  if (tickets.length < 2) return tickets;
+  const used = new Set(tickets.map((t) => t.id));
+  const next = filtered.find((p) => !used.has(p.id));
+  if (!next) {
+    log.line("graph.deal.swap", { skipped: true, reason: "no unused survivor" });
+    return tickets;
+  }
+  const nextTickets = tickets.slice();
+  const from = nextTickets[1]?.id;
+  nextTickets[1] = toTicket(next, duskMinutes);
+  log.line("graph.deal.swap", {
+    from,
+    to: next.id,
+    reason: "food is not a signed tag; next unused survivor",
+  });
+  return nextTickets;
+}
+
+function restorePlaces(raw: unknown): Place[] {
+  if (!Array.isArray(raw)) return [];
+  const kept: Place[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const p = row as Place;
+    if (typeof p.id !== "string" || typeof p.title !== "string") continue;
+    if (p.surface !== "PAVED" && p.surface !== "PACKED GRAVEL") continue;
+    if (typeof p.photo !== "string" || !p.photo) continue;
+    if (typeof p.minutesOut !== "number" || typeof p.onSiteMinutes !== "number") continue;
+    kept.push(p);
+  }
+  return kept;
+}
+
+function restoreTickets(raw: unknown): Ticket[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((row): row is Ticket => {
+    if (!row || typeof row !== "object") return false;
+    const t = row as Ticket;
+    return typeof t.id === "string" && typeof t.title === "string" && t.daylight === "BACK BEFORE DUSK";
+  });
+}
+
+function restoreReport(raw: unknown, mood?: Mood): RetrieveReport {
+  if (!raw || typeof raw !== "object") return { ...EMPTY_RETRIEVE, mood: mood ?? null };
+  const r = raw as RetrieveReport;
+  if (r.source !== "atlas" && r.source !== "seed") return { ...EMPTY_RETRIEVE, mood: mood ?? null };
+  return {
+    source: r.source,
+    via: r.via === "vector" || r.via === "find" ? r.via : null,
+    operator: r.operator === "$vectorSearch" || r.operator === "find" || r.operator === "seed" ? r.operator : "seed",
+    atlas: r.atlas ?? null,
+    mood: mood ?? r.mood ?? null,
+  };
+}
+
+async function nodeNotes(incoming?: string): Promise<string[]> {
+  const notes = await loadNotesFromAtlas();
+  const text = incoming?.trim();
+  if (text) {
+    await appendNote(text);
+    notes.unshift(text);
+  }
+  log.line("graph.notes", { count: notes.length, appended: Boolean(text) });
+  return notes;
+}
+
+export async function dealSaturday(
+  mood?: Mood,
+  follow?: { threadId?: string; note?: string },
+): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
     const dusk = saturdaySunset();
+    const threadId = follow?.threadId?.trim() || randomUUID();
     log.line("deal.start", {
       home: "41144",
       radius: HOME_RADIUS_MILES,
       mood: mood ?? "none",
+      threadId,
       saturday: dusk.date,
       dusk: dusk.clock,
     });
-    loadNotes();
-    const retrieved = await retrieve(mood);
-    const retrievePath = reportOf(retrieved, retrieved.places, mood);
-    const filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
-    const ids = await rankWithGemini(filtered);
+
+    const notes = await nodeNotes(follow?.note);
+    const saved = follow?.threadId?.trim() ? await loadCheckpoint(threadId) : null;
+    const savedPlaces = restorePlaces(saved?.filtered);
+    const savedTickets = restoreTickets(saved?.tickets);
+    const swap = wantsSwapMiddle(follow?.note) && savedPlaces.length > 0 && savedTickets.length > 0;
+
+    let filtered: Place[];
+    let retrievePath: RetrieveReport;
     let tickets: Ticket[];
-    if (!ids) {
-      tickets = fallbackDeal(filtered, dusk.minutes);
+    let nodes: string[];
+
+    if (swap) {
+      nodes = ["notes", "deal"];
+      filtered = savedPlaces;
+      retrievePath = restoreReport(saved?.retrieve, mood ?? parseMood(typeof saved?.mood === "string" ? saved.mood : undefined));
+      tickets = swapMiddle(filtered, savedTickets, dusk.minutes);
+      log.line("graph.filter", { skipped: true, reason: "checkpoint", n: filtered.length });
     } else {
-      const byId = new Map(filtered.map((p) => [p.id, p]));
-      tickets = ids
-        .map((id) => byId.get(id))
-        .filter((p): p is Place => Boolean(p))
-        .map((p) => toTicket(p, dusk.minutes));
-      if (!tickets.length) tickets = fallbackDeal(filtered, dusk.minutes);
-      else log.line("deal.ranked", { ids: tickets.map((t) => t.id) });
+      nodes = ["notes", "retrieve", "filter", "deal"];
+      const retrieved = await retrieve(mood);
+      retrievePath = reportOf(retrieved, retrieved.places, mood);
+      filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
+      log.line("graph.filter", { n: filtered.length, mood: mood ?? "none" });
+      tickets = await dealThree(filtered, dusk.minutes);
     }
+
+    try {
+      await saveCheckpoint(threadId, {
+        mood: mood ?? saved?.mood ?? null,
+        notes,
+        filtered,
+        tickets,
+        retrieve: retrievePath,
+      });
+      log.line("graph.checkpoint", { threadId, tickets: tickets.map((t) => t.id), nodes });
+    } catch (err) {
+      log.error("graph.checkpoint.fail", err, { threadId });
+    }
+
     log.json(
       "deal.done",
       tickets.map((t) => ({
@@ -328,8 +445,10 @@ export async function dealSaturday(mood?: Mood): Promise<DealResult> {
         saturday: dusk.date,
         dusk: dusk.clock,
         count: tickets.length,
+        threadId,
+        nodes,
       },
     );
-    return { tickets, retrieve: retrievePath, calls: takeCalls() };
+    return { tickets, retrieve: retrievePath, calls: takeCalls(), threadId, nodes };
   });
 }
