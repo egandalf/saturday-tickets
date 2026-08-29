@@ -39,6 +39,7 @@ export type RetrieveReport = {
 export type DealFollow = {
   threadId?: string;
   note?: string;
+  slot?: number;
 };
 
 export type DealResult = {
@@ -243,7 +244,7 @@ async function geminiGenerate(key: string, body: unknown): Promise<Response> {
   });
 }
 
-async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
+async function rankWithGemini(filtered: Place[], note?: string): Promise<string[] | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     log.line("gemini.skip", { reason: "GEMINI_API_KEY unset" });
@@ -277,9 +278,11 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
             text: [
               "Deal exactly three Saturday tickets from this list.",
               "Do not invent places. Do not promote a pin because it looks remote.",
+              "Food is not a signed pin. Do not invent a restaurant.",
+              note ? `Family note: ${note}` : "",
               "Return JSON only: {\"ids\":[\"id\",\"id\",\"id\"]}",
               JSON.stringify(candidates),
-            ].join("\n"),
+            ].filter(Boolean).join("\n"),
           },
         ],
       },
@@ -334,18 +337,26 @@ function rankTickets(filtered: Place[], duskMinutes: number, ids: string[] | nul
   return tickets;
 }
 
-function swapMiddle(tickets: Ticket[], filtered: Place[], duskMinutes: number): Ticket[] {
+function parseSlot(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
+  if (value < 0 || value > 2) return undefined;
+  return value;
+}
+
+function swapSlot(tickets: Ticket[], filtered: Place[], duskMinutes: number, slot: number): Ticket[] {
   const next = tickets.slice();
+  if (slot >= next.length) return next;
   const used = new Set(next.map((t) => t.id));
   const unused = filtered.find((p) => p && typeof p.id === "string" && !used.has(p.id));
-  const from = next[1]?.id ?? null;
-  if (unused && next.length > 1) {
-    next[1] = toTicket(unused, duskMinutes);
+  const from = next[slot]?.id ?? null;
+  if (unused) {
+    next[slot] = toTicket(unused, duskMinutes);
   }
   log.line("graph.deal.swap", {
     from,
-    to: next[1]?.id ?? null,
-    reason: SWAP_REASON,
+    to: next[slot]?.id ?? null,
+    slot,
+    reason: unused ? "skip slot; next unused survivor" : SWAP_REASON,
   });
   return next;
 }
@@ -366,10 +377,11 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<De
     });
 
     const notes = await loadNotes(follow?.note);
-
-    const swapWanted = Boolean(follow?.note && /swap the middle/i.test(follow.note));
-    const checkpoint = swapWanted && followThread ? await loadCheckpoint(followThread) : null;
-    const swap =
+    const slot = parseSlot(follow?.slot);
+    const swapMiddleNote = Boolean(follow?.note && /swap the middle/i.test(follow.note));
+    const revise = Boolean(followThread && (slot !== undefined || swapMiddleNote || follow?.note?.trim()));
+    const checkpoint = revise && followThread ? await loadCheckpoint(followThread) : null;
+    const canCheckpoint =
       Boolean(checkpoint) &&
       Array.isArray(checkpoint?.filtered) &&
       Array.isArray(checkpoint?.tickets);
@@ -379,12 +391,18 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<De
     let tickets: Ticket[];
     let nodes: string[];
 
-    if (swap && checkpoint) {
+    if (canCheckpoint && checkpoint) {
       nodes = ["notes", "deal"];
       retrievePath = reportFromUnknown(checkpoint.retrieve, mood);
       filtered = asPlaces(checkpoint.filtered);
-      tickets = swapMiddle(asTickets(checkpoint.tickets), filtered, dusk.minutes);
-      log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: true });
+      const current = asTickets(checkpoint.tickets);
+      const skipAt = slot ?? (swapMiddleNote ? 1 : undefined);
+      if (skipAt !== undefined) {
+        tickets = swapSlot(current, filtered, dusk.minutes, skipAt);
+      } else {
+        tickets = rankTickets(filtered, dusk.minutes, await rankWithGemini(filtered, follow?.note));
+      }
+      log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: skipAt !== undefined, slot: skipAt ?? null });
     } else {
       nodes = ["notes", "retrieve", "filter", "deal"];
       const retrieved = await retrieve(mood);
@@ -397,13 +415,17 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<De
       });
       filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
       log.line("graph.filter", { mood: mood ?? "none", in: retrieved.places.length, out: filtered.length });
-      tickets = rankTickets(filtered, dusk.minutes, await rankWithGemini(filtered));
+      tickets = rankTickets(filtered, dusk.minutes, await rankWithGemini(filtered, follow?.note));
       log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: false });
     }
 
+    const savedMood =
+      mood ??
+      parseMood(typeof checkpoint?.mood === "string" ? checkpoint.mood : null) ??
+      null;
     await saveCheckpoint(threadId, {
       threadId,
-      mood: mood ?? null,
+      mood: savedMood,
       notes,
       filtered,
       tickets,

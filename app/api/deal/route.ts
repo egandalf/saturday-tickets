@@ -8,6 +8,16 @@ function asBodyString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function asSlot(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 2) {
+    return value;
+  }
+  if (typeof value === "string" && /^(0|1|2)$/.test(value)) {
+    return Number(value);
+  }
+  return undefined;
+}
+
 function dealPayload(dealt: DealResult) {
   return {
     tickets: dealt.tickets,
@@ -74,14 +84,16 @@ export async function POST(request: Request) {
   const mood = parseMood(asBodyString(rec.mood) ?? queryMood);
   const threadId = asBodyString(rec.threadId);
   const note = asBodyString(rec.note);
+  const slot = asSlot(rec.slot);
   log.line("http.POST.body", {
     path: "/api/deal",
     mood: mood ?? "none",
     threadId: threadId ?? null,
+    slot: slot ?? null,
     note: note ? note.trim() : null,
   });
   try {
-    const dealt = await dealSaturday(mood, { threadId, note });
+    const dealt = await dealSaturday(mood, { threadId, note, slot });
     log.line("http.POST.ok", {
       path: "/api/deal",
       count: dealt.tickets.length,
