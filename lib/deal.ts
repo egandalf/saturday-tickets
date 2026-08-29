@@ -1,6 +1,11 @@
-import { randomUUID } from "crypto";
 import { log, takeCalls, withDeal } from "./log";
-import { appendNote, loadCheckpoint, loadNotesFromAtlas, saveCheckpoint } from "./mongo";
+import {
+  appendNote,
+  loadCheckpoint,
+  loadNotesFromAtlas,
+  loadPlacesFromAtlas,
+  saveCheckpoint,
+} from "./mongo";
 import { PLACES, signedTags, type Place } from "./places";
 import { saturdaySunset, type SaturdaySunset } from "./sun";
 import type { DealCall } from "./trace";
@@ -31,6 +36,11 @@ export type RetrieveReport = {
   mood: Mood | null;
 };
 
+export type DealFollow = {
+  threadId?: string;
+  note?: string;
+};
+
 export type DealResult = {
   tickets: Ticket[];
   retrieve: RetrieveReport;
@@ -44,17 +54,29 @@ const SATURDAY_START = 10 * 60;
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
-const EMPTY_RETRIEVE: RetrieveReport = {
+const SEED_RETRIEVE: RetrieveReport = {
   source: "seed",
   via: null,
   operator: "seed",
   atlas: null,
   mood: null,
 };
+const SWAP_REASON = "food is not a signed tag; next unused survivor";
 
-export function parseMood(value: string | null | undefined): Mood | undefined {
+export function parseMood(value: string | null): Mood | undefined {
   const s = value?.trim().toLowerCase();
   return MOODS.includes(s as Mood) ? (s as Mood) : undefined;
+}
+
+async function loadNotes(incoming?: string): Promise<string[]> {
+  const notes = await loadNotesFromAtlas();
+  const note = incoming?.trim() ?? "";
+  if (note) {
+    await appendNote(note);
+    notes.unshift(note);
+  }
+  log.line("graph.notes", { count: notes.length, appended: Boolean(note) });
+  return notes;
 }
 
 function coverage(places: Place[]): { n: number; withCredit: number } {
@@ -80,6 +102,17 @@ function reportOf(
   return { source: "seed", via: null, operator: "seed", atlas: null, mood: moodValue };
 }
 
+function reportFromUnknown(value: unknown, mood?: Mood): RetrieveReport {
+  if (!value || typeof value !== "object") {
+    return { ...SEED_RETRIEVE, mood: mood ?? null };
+  }
+  const rec = value as RetrieveReport;
+  if (rec.source !== "atlas" && rec.source !== "seed") {
+    return { ...SEED_RETRIEVE, mood: mood ?? null };
+  }
+  return rec;
+}
+
 async function retrieve(mood?: Mood): Promise<{
   places: Place[];
   source: "atlas" | "seed";
@@ -88,7 +121,7 @@ async function retrieve(mood?: Mood): Promise<{
 }> {
   const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, FAMILY_QUERY);
   if (fromAtlas && fromAtlas.places.length) {
-    log.line("graph.retrieve", {
+    log.line("retrieve.atlas", {
       via: fromAtlas.via,
       mood: mood ?? "none",
       count: fromAtlas.places.length,
@@ -101,8 +134,7 @@ async function retrieve(mood?: Mood): Promise<{
 
   const seed = PLACES.filter((p) => p.milesFromHome <= HOME_RADIUS_MILES && Boolean(p.photo));
   const reason = fromAtlas ? "atlas places empty" : "atlas unavailable";
-  log.line("graph.retrieve", {
-    source: "seed",
+  log.line("retrieve.seed", {
     reason,
     mood: mood ?? "none",
     count: seed.length,
@@ -282,8 +314,15 @@ async function rankWithGemini(filtered: Place[]): Promise<string[] | null> {
   return ids.length ? ids : null;
 }
 
-async function dealThree(filtered: Place[], duskMinutes: number): Promise<Ticket[]> {
-  const ids = await rankWithGemini(filtered);
+function asPlaces(value: unknown): Place[] {
+  return Array.isArray(value) ? (value as Place[]) : [];
+}
+
+function asTickets(value: unknown): Ticket[] {
+  return Array.isArray(value) ? (value as Ticket[]).map((t) => ({ ...t })) : [];
+}
+
+function rankTickets(filtered: Place[], duskMinutes: number, ids: string[] | null): Ticket[] {
   if (!ids) return fallbackDeal(filtered, duskMinutes);
   const byId = new Map(filtered.map((p) => [p.id, p]));
   const tickets = ids
@@ -291,136 +330,85 @@ async function dealThree(filtered: Place[], duskMinutes: number): Promise<Ticket
     .filter((p): p is Place => Boolean(p))
     .map((p) => toTicket(p, duskMinutes));
   if (!tickets.length) return fallbackDeal(filtered, duskMinutes);
-  log.line("graph.deal", { ids: tickets.map((t) => t.id) });
+  log.line("deal.ranked", { ids: tickets.map((t) => t.id) });
   return tickets;
 }
 
-function wantsSwapMiddle(note?: string): boolean {
-  return Boolean(note && /swap the middle/i.test(note));
-}
-
-function swapMiddle(filtered: Place[], tickets: Ticket[], duskMinutes: number): Ticket[] {
-  if (tickets.length < 2) return tickets;
-  const used = new Set(tickets.map((t) => t.id));
-  const next = filtered.find((p) => !used.has(p.id));
-  if (!next) {
-    log.line("graph.deal.swap", { skipped: true, reason: "no unused survivor" });
-    return tickets;
+function swapMiddle(tickets: Ticket[], filtered: Place[], duskMinutes: number): Ticket[] {
+  const next = tickets.slice();
+  const used = new Set(next.map((t) => t.id));
+  const unused = filtered.find((p) => p && typeof p.id === "string" && !used.has(p.id));
+  const from = next[1]?.id ?? null;
+  if (unused && next.length > 1) {
+    next[1] = toTicket(unused, duskMinutes);
   }
-  const nextTickets = tickets.slice();
-  const from = nextTickets[1]?.id;
-  nextTickets[1] = toTicket(next, duskMinutes);
   log.line("graph.deal.swap", {
     from,
-    to: next.id,
-    reason: "food is not a signed tag; next unused survivor",
+    to: next[1]?.id ?? null,
+    reason: SWAP_REASON,
   });
-  return nextTickets;
+  return next;
 }
 
-function restorePlaces(raw: unknown): Place[] {
-  if (!Array.isArray(raw)) return [];
-  const kept: Place[] = [];
-  for (const row of raw) {
-    if (!row || typeof row !== "object") continue;
-    const p = row as Place;
-    if (typeof p.id !== "string" || typeof p.title !== "string") continue;
-    if (p.surface !== "PAVED" && p.surface !== "PACKED GRAVEL") continue;
-    if (typeof p.photo !== "string" || !p.photo) continue;
-    if (typeof p.minutesOut !== "number" || typeof p.onSiteMinutes !== "number") continue;
-    kept.push(p);
-  }
-  return kept;
-}
-
-function restoreTickets(raw: unknown): Ticket[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((row): row is Ticket => {
-    if (!row || typeof row !== "object") return false;
-    const t = row as Ticket;
-    return typeof t.id === "string" && typeof t.title === "string" && t.daylight === "BACK BEFORE DUSK";
-  });
-}
-
-function restoreReport(raw: unknown, mood?: Mood): RetrieveReport {
-  if (!raw || typeof raw !== "object") return { ...EMPTY_RETRIEVE, mood: mood ?? null };
-  const r = raw as RetrieveReport;
-  if (r.source !== "atlas" && r.source !== "seed") return { ...EMPTY_RETRIEVE, mood: mood ?? null };
-  return {
-    source: r.source,
-    via: r.via === "vector" || r.via === "find" ? r.via : null,
-    operator: r.operator === "$vectorSearch" || r.operator === "find" || r.operator === "seed" ? r.operator : "seed",
-    atlas: r.atlas ?? null,
-    mood: mood ?? r.mood ?? null,
-  };
-}
-
-async function nodeNotes(incoming?: string): Promise<string[]> {
-  const notes = await loadNotesFromAtlas();
-  const text = incoming?.trim();
-  if (text) {
-    await appendNote(text);
-    notes.unshift(text);
-  }
-  log.line("graph.notes", { count: notes.length, appended: Boolean(text) });
-  return notes;
-}
-
-export async function dealSaturday(
-  mood?: Mood,
-  follow?: { threadId?: string; note?: string },
-): Promise<DealResult> {
+export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
     const dusk = saturdaySunset();
-    const threadId = follow?.threadId?.trim() || randomUUID();
+    const followThread = follow?.threadId?.trim() || undefined;
+    const threadId = followThread ?? crypto.randomUUID();
     log.line("deal.start", {
       home: "41144",
       radius: HOME_RADIUS_MILES,
       mood: mood ?? "none",
-      threadId,
       saturday: dusk.date,
       dusk: dusk.clock,
+      threadId,
     });
 
-    const notes = await nodeNotes(follow?.note);
-    const saved = follow?.threadId?.trim() ? await loadCheckpoint(threadId) : null;
-    const savedPlaces = restorePlaces(saved?.filtered);
-    const savedTickets = restoreTickets(saved?.tickets);
-    const swap = wantsSwapMiddle(follow?.note) && savedPlaces.length > 0 && savedTickets.length > 0;
+    const notes = await loadNotes(follow?.note);
 
-    let filtered: Place[];
+    const swapWanted = Boolean(follow?.note && /swap the middle/i.test(follow.note));
+    const checkpoint = swapWanted && followThread ? await loadCheckpoint(followThread) : null;
+    const swap =
+      Boolean(checkpoint) &&
+      Array.isArray(checkpoint?.filtered) &&
+      Array.isArray(checkpoint?.tickets);
+
     let retrievePath: RetrieveReport;
+    let filtered: Place[];
     let tickets: Ticket[];
     let nodes: string[];
 
-    if (swap) {
+    if (swap && checkpoint) {
       nodes = ["notes", "deal"];
-      filtered = savedPlaces;
-      retrievePath = restoreReport(saved?.retrieve, mood ?? parseMood(typeof saved?.mood === "string" ? saved.mood : undefined));
-      tickets = swapMiddle(filtered, savedTickets, dusk.minutes);
-      log.line("graph.filter", { skipped: true, reason: "checkpoint", n: filtered.length });
+      retrievePath = reportFromUnknown(checkpoint.retrieve, mood);
+      filtered = asPlaces(checkpoint.filtered);
+      tickets = swapMiddle(asTickets(checkpoint.tickets), filtered, dusk.minutes);
+      log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: true });
     } else {
       nodes = ["notes", "retrieve", "filter", "deal"];
       const retrieved = await retrieve(mood);
       retrievePath = reportOf(retrieved, retrieved.places, mood);
+      log.line("graph.retrieve", {
+        source: retrievePath.source,
+        via: retrievePath.via,
+        operator: retrievePath.operator,
+        count: retrieved.places.length,
+      });
       filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
-      log.line("graph.filter", { n: filtered.length, mood: mood ?? "none" });
-      tickets = await dealThree(filtered, dusk.minutes);
+      log.line("graph.filter", { mood: mood ?? "none", in: retrieved.places.length, out: filtered.length });
+      tickets = rankTickets(filtered, dusk.minutes, await rankWithGemini(filtered));
+      log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: false });
     }
 
-    try {
-      await saveCheckpoint(threadId, {
-        mood: mood ?? saved?.mood ?? null,
-        notes,
-        filtered,
-        tickets,
-        retrieve: retrievePath,
-      });
-      log.line("graph.checkpoint", { threadId, tickets: tickets.map((t) => t.id), nodes });
-    } catch (err) {
-      log.error("graph.checkpoint.fail", err, { threadId });
-    }
+    await saveCheckpoint(threadId, {
+      threadId,
+      mood: mood ?? null,
+      notes,
+      filtered,
+      tickets,
+      retrieve: retrievePath,
+    });
 
     log.json(
       "deal.done",
