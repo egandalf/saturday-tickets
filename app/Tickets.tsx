@@ -252,7 +252,7 @@ export function Tickets({
             name="note"
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Too far, already been, something else"
+            placeholder="Swap the middle"
             aria-label="Change this deal"
             autoComplete="off"
           />
