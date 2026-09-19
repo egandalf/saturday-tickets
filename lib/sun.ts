@@ -1,6 +1,5 @@
 /** 41144 Greenup, KY. Leave-by follows sunset that Saturday, not a fixed 7:30. */
-const LAT = 38.578;
-const LNG = -82.83;
+export const HOME_COORDS = { lat: 38.578, lng: -82.83 };
 const TZ = "America/New_York";
 
 const PI = Math.PI;
@@ -113,10 +112,11 @@ function clockFromMinutes(total: number): string {
   return minute === 0 ? `${hour} ${suffix}` : `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
-export function saturdaySunset(from = new Date()): SaturdaySunset {
+/** Clock is Eastern time; `at` defaults to home. */
+export function saturdaySunset(from = new Date(), at = HOME_COORDS): SaturdaySunset {
   const sat = upcomingSaturday(from);
   const noonUtc = Date.UTC(sat.year, sat.month - 1, sat.day, 12, 0, 0);
-  const setMs = fromJulian(sunsetJulian(noonUtc, LAT, LNG));
+  const setMs = fromJulian(sunsetJulian(noonUtc, at.lat, at.lng));
   const set = new Date(setMs);
   const clock = new Intl.DateTimeFormat("en-US", {
     timeZone: TZ,

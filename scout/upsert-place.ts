@@ -4,32 +4,59 @@
  *   npm run scout:upsert -- scout/data/new.json             dry run: validate, show embed text
  *   npm run scout:upsert -- scout/data/new.json --write     embed and write new ids
  *   npm run scout:upsert -- scout/data/new.json --write --replace   also overwrite existing ids
+ *   --origin=lat,lng[,label] --radius=miles   measure from somewhere else (default 41144, 150 mi)
  *   --collection=places_scratch   write somewhere other than the live places (for testing)
+ *
+ * The app reads milesFromHome and minutesOut as measured from 41144, so the live places
+ * collection only takes runs from that origin.
  *
  * Tags stay signed in lib/places.ts. An untagged place is stored but only deals with no mood.
  */
 import { readFile } from "node:fs/promises";
 import { signedTags } from "../lib/places";
 import { withDb } from "./lib/atlas";
+import { DEFAULT_RUN, isAppHome, parseOrigin, parseRadius, type Run } from "./lib/origin";
 import {
   backAt,
   EMBED_MODEL,
   embedText,
   formatIssues,
   longestSaturday,
-  PlaceInput,
+  placeInput,
   type PlaceDoc,
+  type PlaceInput,
+  type WaterCrossingAssessment,
 } from "./lib/place-doc";
 import { embedDocuments } from "./lib/voyage";
 
-type Args = { file: string; write: boolean; replace: boolean; collection: string };
+type Args = { file: string; write: boolean; replace: boolean; collection: string; run: Run };
 
 function parseArgs(argv: string[]): Args {
   const flags = new Set(argv.filter((a) => a.startsWith("--") && !a.includes("=")));
   const file = argv.find((a) => !a.startsWith("--"));
-  const collection = argv.find((a) => a.startsWith("--collection="))?.split("=")[1] || "places";
-  if (!file) throw new Error("usage: scout:upsert -- <places.json> [--write] [--replace]");
-  return { file, write: flags.has("--write"), replace: flags.has("--replace"), collection };
+  const value = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+  const collection = value("collection") || "places";
+  const originText = value("origin");
+  const radiusText = value("radius");
+  const run: Run = {
+    origin: originText ? parseOrigin(originText) : DEFAULT_RUN.origin,
+    radiusMiles: radiusText ? parseRadius(radiusText) : DEFAULT_RUN.radiusMiles,
+  };
+  if (!file) throw new Error("usage: scout:upsert -- <places.json> [--write] [--replace] [--origin=lat,lng] [--radius=mi]");
+  if (collection === "places" && !isAppHome(run.origin)) {
+    throw new Error(`the live places collection is measured from 41144; use --collection= for ${run.origin.label}`);
+  }
+  return { file, write: flags.has("--write"), replace: flags.has("--replace"), collection, run };
+}
+
+function printCrossing(a: WaterCrossingAssessment): void {
+  const [lng, lat] = a.location.coordinates;
+  console.log(`    water crossing: ${a.kind} over ${a.waterway}, ~${a.typicalDepthInches} in, at ${lat},${lng}`);
+  console.log(`      where: ${a.where}`);
+  console.log(`      closes when: ${a.closesWhen}`);
+  console.log(`      bypass: ${a.bypass ?? "none"} · gauge: ${a.usgsGauge ? `USGS ${a.usgsGauge}` : "none"}`);
+  for (const risk of a.risks) console.log(`      risk: ${risk}`);
+  console.log(`      sources (${a.assessedAt}): ${a.sources.join(" ")}`);
 }
 
 function clock(minutes: number): string {
@@ -41,10 +68,11 @@ async function main(): Promise<void> {
   const raw: unknown = JSON.parse(await readFile(args.file, "utf8"));
   const items = Array.isArray(raw) ? raw : [raw];
 
+  const schema = placeInput(args.run);
   const valid: PlaceInput[] = [];
   let invalid = 0;
   for (const [i, item] of items.entries()) {
-    const parsed = PlaceInput.safeParse(item);
+    const parsed = schema.safeParse(item);
     const label = (item as { id?: unknown })?.id ?? `#${i}`;
     if (!parsed.success) {
       invalid++;
@@ -55,7 +83,8 @@ async function main(): Promise<void> {
     valid.push(parsed.data);
   }
 
-  const dusk = longestSaturday();
+  const dusk = longestSaturday(args.run.origin);
+  console.log(`from ${args.run.origin.label} (${args.run.origin.lat},${args.run.origin.lng}) within ${args.run.radiusMiles} mi\n`);
   await withDb(async (db) => {
     const coll = db.collection(args.collection);
     const ids = valid.map((p) => p.id);
@@ -71,6 +100,7 @@ async function main(): Promise<void> {
       console.log(`✓ ${p.id}  ${action}`);
       console.log(`    ${p.title} · ${p.surface} · ${p.milesFromHome} mi · home ${clock(backAt(p))} (latest dusk ${dusk.clock} on ${dusk.date})`);
       console.log(`    tags: ${tags.length ? tags.join(", ") : "none signed; add the id to lib/places.ts"}`);
+      if (p.waterCrossingAssessment) printCrossing(p.waterCrossingAssessment);
       console.log(`    embed: ${embedText(p)}`);
       if (!exists || args.replace) toWrite.push(p);
     }
@@ -89,11 +119,13 @@ async function main(): Promise<void> {
         const doc: PlaceDoc = {
           ...p,
           duskOk: true,
+          measuredFrom: args.run.origin,
           embedding: vecs[i],
           embeddingModel: EMBED_MODEL,
           embeddingDims: vecs[i].length,
         };
-        const unset = p.note === undefined ? { $unset: { note: "" } } : {};
+        const absent = (["note", "waterCrossingAssessment"] as const).filter((k) => p[k] === undefined);
+        const unset = absent.length ? { $unset: Object.fromEntries(absent.map((k) => [k, ""])) } : {};
         return {
           updateOne: {
             filter: { id: p.id },
