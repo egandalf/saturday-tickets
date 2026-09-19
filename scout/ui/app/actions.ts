@@ -23,7 +23,12 @@ export async function runAgentAction(agent: string, form: FormData): Promise<voi
     if (!key.startsWith(FIELD_PREFIX) || typeof value !== "string" || !value.trim()) continue;
     input[key.slice(FIELD_PREFIX.length)] = value.trim();
   }
-  const id = await startExecution(await getFramework(), agent, input);
+  let id: string;
+  try {
+    id = await startExecution(await getFramework(), agent, input);
+  } catch (err) {
+    redirect(`/agents/${agent}?error=${encodeURIComponent(err instanceof Error ? err.message : String(err))}#run`);
+  }
   redirect(`/executions/${id}`);
 }
 

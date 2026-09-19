@@ -17,7 +17,7 @@ export const SEED_AGENTS: AgentDefinition[] = [
     input: [
       { name: "focus", label: "Focus", type: "string", help: "lake, woods, town, history, or anything specific; blank = the thinnest kind" },
       { name: "count", label: "How many leads", type: "number", default: 5 },
-      { name: "origin", label: "Look around (lat,lng,Label)", type: "string", help: "blank = home, 41144 Greenup, KY" },
+      { name: "origin", label: "Look around", type: "place", help: "A town, ZIP, address, or lat,lng; blank = home (41144 Greenup, KY)" },
       { name: "radius", label: "Radius (miles)", type: "number", default: 150 },
     ],
     instructions: `Find new places a family from 41144 Greenup, Kentucky would enjoy for a Saturday day trip, matching the run's focus, inside the search area.

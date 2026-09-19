@@ -147,7 +147,7 @@ export function AgentEditor({
 
       <div className="card">
         <label>
-          Input fields (JSON: name, label, type string|text|number|json, required, default, help)
+          Input fields (JSON: name, label, type string|text|number|json|place, required, default, help)
           <textarea className="mono small" rows={10} value={inputJson} onChange={(e) => setInputJson(e.target.value)} />
         </label>
         <label>

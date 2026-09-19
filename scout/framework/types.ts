@@ -64,7 +64,8 @@ export type ToolDef<I = any, R = unknown> = {
 export type InputField = {
   name: string;
   label: string;
-  type: "string" | "text" | "number" | "json";
+  /** place: a ZIP, town, address, or lat,lng; geocoded to "lat,lng,Label" when the execution starts. */
+  type: "string" | "text" | "number" | "json" | "place";
   required?: boolean;
   default?: unknown;
   help?: string;

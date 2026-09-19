@@ -11,9 +11,9 @@ import { ago, FIELD_PREFIX } from "../../../lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentPage({ params, searchParams }: { params: Promise<{ name: string }>; searchParams: Promise<{ v?: string }> }) {
+export default async function AgentPage({ params, searchParams }: { params: Promise<{ name: string }>; searchParams: Promise<{ v?: string; error?: string }> }) {
   const { name } = await params;
-  const { v } = await searchParams;
+  const { v, error } = await searchParams;
   const db = await getDb();
   const versions = plain(await versionsOf(db, name));
   if (!versions.length) notFound();
@@ -37,6 +37,7 @@ export default async function AgentPage({ params, searchParams }: { params: Prom
 
       <form id="run" action={runAgentAction.bind(null, name)} className="panel stack">
         <h2>Run {name}</h2>
+        {error ? <p className="error">{error}</p> : null}
         <div className="row">
           {def.input.map((f) => (
             <label key={f.name} className={f.type === "text" || f.type === "json" ? "grow" : ""} style={f.type === "text" || f.type === "json" ? { flexBasis: "100%" } : undefined}>
@@ -45,7 +46,7 @@ export default async function AgentPage({ params, searchParams }: { params: Prom
               {f.type === "text" || f.type === "json" ? (
                 <textarea name={`${FIELD_PREFIX}${f.name}`} rows={f.type === "json" ? 6 : 3} className={f.type === "json" ? "mono small" : ""} required={f.required} />
               ) : (
-                <input name={`${FIELD_PREFIX}${f.name}`} type={f.type === "number" ? "number" : "text"} defaultValue={f.default === undefined ? "" : String(f.default)} required={f.required} />
+                <input name={`${FIELD_PREFIX}${f.name}`} type={f.type === "number" ? "number" : "text"} placeholder={f.type === "place" ? "Greenup, KY · 41144 · 38.57,-82.83" : undefined} defaultValue={f.default === undefined ? "" : String(f.default)} required={f.required} />
               )}
               {f.help ? <span className="small muted">{f.help}</span> : null}
             </label>

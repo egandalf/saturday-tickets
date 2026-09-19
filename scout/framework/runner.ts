@@ -13,7 +13,8 @@ import { logger } from "./events";
 import { buildExecutor, type Executor } from "./executor";
 import { connect, type Connection } from "./store";
 import { tool } from "./tools/index";
-import type { AgentDefinition, Decision, Execution, Waiting } from "./types";
+import { checkInput } from "./inputs";
+import type { Decision, Execution, Waiting } from "./types";
 
 const MAX_CONCURRENT = 2;
 /** LangGraph counts every node as a step; the executor's maxTurns check is the real bound. */
@@ -110,24 +111,6 @@ async function settle(fw: Framework, id: string): Promise<void> {
   await executions.updateOne({ _id: id }, { $set: { ...set, updatedAt: new Date() } });
 }
 
-function checkInput(def: AgentDefinition, input: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const f of def.input) {
-    let v = input[f.name];
-    if ((v === undefined || v === "" || v === null) && f.default !== undefined) v = f.default;
-    if ((v === undefined || v === "" || v === null) && f.required) throw new Error(`input "${f.name}" is required`);
-    if (v === undefined || v === "") continue;
-    if (f.type === "number") {
-      const n = Number(v);
-      if (!Number.isFinite(n)) throw new Error(`input "${f.name}" must be a number`);
-      v = n;
-    }
-    if (f.type === "json" && typeof v === "string") v = JSON.parse(v);
-    out[f.name] = v;
-  }
-  return out;
-}
-
 export async function startExecution(
   fw: Framework,
   agent: string,
@@ -137,7 +120,7 @@ export async function startExecution(
   const version = await currentVersion(fw.db, agent);
   const def = version.definition;
   tool(def.output); // fail early if the definition points at a missing tool
-  const clean = checkInput(def, input);
+  const clean = await checkInput(def, input);
   const id = link.id ?? randomUUID();
   const executions = fw.db.collection<Execution>("executions");
   if (await executions.findOne({ _id: id })) return id;

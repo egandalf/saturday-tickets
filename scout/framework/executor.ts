@@ -18,6 +18,8 @@ import { inputSchema, tool, TOOLS } from "./tools/index";
 import type { AgentDefinition, Decision, ModelMessage, OutputResult, ToolContext } from "./types";
 
 const MAX_NUDGES = 2;
+/** The same failing tool round this many times in a row means the agent can't fix it (e.g. a bad input). */
+const MAX_REPEATED_ERRORS = 3;
 const MAX_RESULT_CHARS = 30_000;
 
 export type Hooks = {
@@ -40,6 +42,7 @@ export const ExecState = Annotation.Root({
   decision: Annotation<Decision | null>,
   stopError: Annotation<string | null>,
   result: Annotation<unknown>,
+  errorStreak: Annotation<{ key: string; n: number } | null>,
   outcome: Annotation<string | null>,
   failed: Annotation<string | null>,
 });
@@ -130,6 +133,7 @@ export function buildExecutor(conn: Connection, hooks: Hooks) {
       decision: null,
       stopError: null,
       result: null,
+      errorStreak: null,
       outcome: null,
       failed: null,
     };
@@ -268,7 +272,17 @@ export function buildExecutor(conn: Connection, hooks: Hooks) {
       content: r.content.length > MAX_RESULT_CHARS ? `${r.content.slice(0, MAX_RESULT_CHARS)}…(trimmed)` : r.content,
       ...(r.isError ? { is_error: true } : {}),
     }));
-    return { messages: [{ role: "user", content }], step, output, approvals: null };
+    // Stuck: every call failed, exactly as in the previous round(s). Stop instead of burning turns.
+    const failedAll = results.length > 0 && results.every((r) => r.isError);
+    const key = failedAll ? results.map((r) => `${r.call.name}: ${r.content}`).sort().join(" | ") : "";
+    const errorStreak = failedAll ? { key, n: s.errorStreak?.key === key ? s.errorStreak.n + 1 : 1 } : null;
+    let failed: string | null = null;
+    if (errorStreak && errorStreak.n >= MAX_REPEATED_ERRORS && !output) {
+      failed = `the same tool error ${errorStreak.n} times in a row: ${key.slice(0, 300)}`;
+      l.log("error", { reason: failed });
+      await l.flush();
+    }
+    return { messages: [{ role: "user", content }], step, output, approvals: null, errorStreak, failed };
   }
 
   /** Pure: the HITL stop, shaped by the output tool (select leads, or approve a draft). */
@@ -363,7 +377,7 @@ export function buildExecutor(conn: Connection, hooks: Hooks) {
     .addConditionalEdges("model", (s: State) => (s.failed ? END : toolUses(s.messages).length ? "gate" : "nudge"), ["gate", "nudge", END])
     .addConditionalEdges("nudge", (s: State) => (s.failed ? END : "model"), ["model", END])
     .addEdge("gate", "tools")
-    .addConditionalEdges("tools", (s: State) => (s.output ? "stop" : "model"), ["stop", "model"])
+    .addConditionalEdges("tools", (s: State) => (s.failed ? END : s.output ? "stop" : "model"), ["stop", "model", END])
     .addEdge("stop", "finish")
     .addConditionalEdges("finish", (s: State) => (s.stopError ? "stop" : END), ["stop", END])
     .compile({ checkpointer: conn.checkpointer, store });
