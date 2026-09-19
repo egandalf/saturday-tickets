@@ -17,6 +17,7 @@ type Ticket = {
   photo: string;
   photoAlt: string;
   credit?: string;
+  waterCrossing?: "WATER CROSSING";
 };
 
 type Retrieve = {
@@ -93,6 +94,7 @@ export function Tickets({
   const [path, setPath] = useState(retrieve);
   const [calls, setCalls] = useState(initialCalls);
   const [mood, setMood] = useState<MoodLabel | null>(null);
+  const [avoidWater, setAvoidWater] = useState(false);
   const [threadId, setThreadId] = useState(initialThreadId);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,7 +120,7 @@ export function Tickets({
   }
 
   useEffect(() => {
-    if (mood === null && initial.length) {
+    if (mood === null && !avoidWater && initial.length) {
       setTickets(initial);
       setPath(retrieve);
       setCalls(initialCalls);
@@ -126,7 +128,10 @@ export function Tickets({
       printTrace("thursday notes", initialCalls, initial);
       return;
     }
-    const url = mood ? `/api/deal?mood=${mood.toLowerCase()}` : "/api/deal";
+    const query = new URLSearchParams();
+    if (mood) query.set("mood", mood.toLowerCase());
+    if (avoidWater) query.set("water", "avoid");
+    const url = query.size ? `/api/deal?${query}` : "/api/deal";
     console.log(
       `%cCLIENT%c  GET ${url}`,
       `color:${SYS_COLOR.CLIENT};font-weight:700;font-family:ui-monospace,monospace`,
@@ -143,7 +148,7 @@ export function Tickets({
           "color:#c8c8c8;font-family:ui-monospace,monospace",
         );
       });
-  }, [mood, initial, retrieve, initialCalls, initialThreadId]);
+  }, [mood, avoidWater, initial, retrieve, initialCalls, initialThreadId]);
 
   async function postDeal(body: Record<string, unknown>, label: string) {
     if (!threadId || busy) return;
@@ -158,7 +163,7 @@ export function Tickets({
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, mood: mood ? mood.toLowerCase() : undefined, ...body }),
+        body: JSON.stringify({ threadId, mood: mood ? mood.toLowerCase() : undefined, avoidWater, ...body }),
       });
       applyDeal(label, (await res.json()) as DealPayload);
     } catch (err: unknown) {
@@ -205,6 +210,14 @@ export function Tickets({
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            className="mood-chip"
+            aria-pressed={avoidWater}
+            onClick={() => setAvoidWater((current) => !current)}
+          >
+            No water crossings
+          </button>
         </div>
       </div>
       <section
@@ -232,6 +245,7 @@ export function Tickets({
                 <div className="chips">
                   <span className="chip">{ticket.surface}</span>
                   <span className="chip">{ticket.daylight}</span>
+                  {ticket.waterCrossing ? <span className="chip">{ticket.waterCrossing}</span> : null}
                 </div>
               </div>
             </div>

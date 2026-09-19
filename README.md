@@ -13,9 +13,9 @@ Spare-time PoC. Public repo. Separate Vercel project and Blob store from `ky-dri
 
 ## Card contract
 
-Chips on the ticket: photo, surface (`PAVED` or `PACKED GRAVEL`), daylight (`BACK BEFORE DUSK`).
+Chips on the ticket: photo, surface (`PAVED` or `PACKED GRAVEL`), daylight (`BACK BEFORE DUSK`), and `WATER CROSSING` when the place has one.
 
-Hard filters, not badges: turnaround, no water crossing, clay-when-wet refuse. Kind tags are membership only and live in code.
+Hard filters, not badges: turnaround, clay-when-wet refuse. Water crossings are established and assessed before scout accepts them; they are dealt unless the family picks **No water crossings** (`?water=avoid`, or `avoidWater` in the POST body). Kind tags are membership only and live in code.
 
 Visual: graphite, chalk type, Solar Yellow `#ffac00` only. No Rivian logo.
 

@@ -23,6 +23,7 @@ export type Ticket = {
   photo: string;
   photoAlt: string;
   credit?: string;
+  waterCrossing?: "WATER CROSSING";
 };
 
 export const MOODS = ["lake", "woods", "town", "history"] as const;
@@ -40,6 +41,11 @@ export type DealFollow = {
   threadId?: string;
   note?: string;
   slot?: number;
+};
+
+/** Family-chosen filters. Water crossings are dealt unless the family avoids them. */
+export type DealFilters = {
+  avoidWater?: boolean;
 };
 
 export type DealResult = {
@@ -149,7 +155,6 @@ function rejectReason(p: Place, saturdayStartMinutes: number, duskMinutes: numbe
   if (!p.photo) return "no photo";
   if (p.surface !== "PAVED" && p.surface !== "PACKED GRAVEL") return `surface ${p.surface}`;
   if (!p.turnaround) return "no turnaround";
-  if (p.waterCrossing) return "water crossing";
   if (p.clayWhenWet) return "clay when wet";
   const back = saturdayStartMinutes + p.minutesOut + p.onSiteMinutes + p.minutesOut;
   if (back > duskMinutes) return `back after dusk (${back} > ${duskMinutes})`;
@@ -172,6 +177,14 @@ function hardFilter(places: Place[], dusk: SaturdaySunset, saturdayStartMinutes 
     dusk: dusk.clock,
   });
   return keptList;
+}
+
+function waterFilter(places: Place[], avoidWater: boolean): Place[] {
+  if (!avoidWater) return places;
+  const kept = places.filter((p) => !p.waterCrossing);
+  const dropped = places.filter((p) => p.waterCrossing).map((p) => p.id);
+  log.json("filter.water", { kept: kept.map((p) => p.id), dropped }, { avoidWater });
+  return kept;
 }
 
 function isSignedTag(p: Place, mood: Mood): boolean {
@@ -224,6 +237,7 @@ function toTicket(p: Place, duskMinutes: number): Ticket {
     photo: p.photo,
     photoAlt: p.photoAlt,
     credit: p.credit,
+    ...(p.waterCrossing ? { waterCrossing: "WATER CROSSING" as const } : {}),
   };
 }
 
@@ -376,7 +390,7 @@ function swapSlot(tickets: Ticket[], filtered: Place[], duskMinutes: number, slo
   return next;
 }
 
-export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<DealResult> {
+export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: DealFilters): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
     const dusk = saturdaySunset();
@@ -386,6 +400,7 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<De
       home: "41144",
       radius: HOME_RADIUS_MILES,
       mood: mood ?? "none",
+      avoidWater: Boolean(filters?.avoidWater),
       saturday: dusk.date,
       dusk: dusk.clock,
       threadId,
@@ -428,7 +443,7 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<De
         operator: retrievePath.operator,
         count: retrieved.places.length,
       });
-      filtered = kindFilter(hardFilter(retrieved.places, dusk), mood);
+      filtered = waterFilter(kindFilter(hardFilter(retrieved.places, dusk), mood), Boolean(filters?.avoidWater));
       log.line("graph.filter", { mood: mood ?? "none", in: retrieved.places.length, out: filtered.length });
       tickets = rankTickets(filtered, dusk.minutes, await rankWithGemini(filtered, follow?.note));
       log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: false });
@@ -438,9 +453,12 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow): Promise<De
       mood ??
       parseMood(typeof checkpoint?.mood === "string" ? checkpoint.mood : null) ??
       null;
+    const savedAvoidWater =
+      filters?.avoidWater ?? (typeof checkpoint?.avoidWater === "boolean" ? checkpoint.avoidWater : false);
     await saveCheckpoint(threadId, {
       threadId,
       mood: savedMood,
+      avoidWater: savedAvoidWater,
       notes,
       filtered,
       tickets,
