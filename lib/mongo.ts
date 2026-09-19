@@ -12,7 +12,7 @@ const g = globalThis as typeof globalThis & GlobalMongo;
 
 const SURFACES: Surface[] = ["PAVED", "PACKED GRAVEL"];
 const VECTOR_INDEX = "places_vector";
-const EMBED_MODEL = "voyage-3-lite";
+const EMBED_MODEL = "voyage-3.5-lite";
 const FAMILY_QUERY =
   "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 

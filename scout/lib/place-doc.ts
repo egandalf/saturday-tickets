@@ -4,7 +4,7 @@ import { saturdaySunset, type SaturdaySunset } from "../../lib/sun";
 import { APP_HOME, straightMiles, type Origin, type Run } from "./origin";
 
 export const SATURDAY_START = 10 * 60;
-export const EMBED_MODEL = "voyage-3-lite";
+export const EMBED_MODEL = "voyage-3.5-lite";
 export const EMBED_DIMS = 512;
 
 /** GeoJSON order is [lng, lat]. */
@@ -131,11 +131,10 @@ export function longestSaturday(origin: Origin): SaturdaySunset {
   return best!;
 }
 
-/**
- * Text that gets embedded for a place. The original 22 were embedded outside this repo; this
- * format scored ~0.94 cosine against their stored vectors, the closest of the formats tried.
- */
-export function embedText(p: PlaceInput): string {
+/** Text that gets embedded for a place. scout:reembed puts every place on this format. */
+export function embedText(
+  p: Pick<PlaceInput, "title" | "photoAlt" | "note" | "surface" | "milesFromHome" | "minutesOut" | "onSiteMinutes">,
+): string {
   return [
     p.title,
     p.photoAlt,

@@ -1,5 +1,5 @@
 /** Document embeds for scout. The free tier is a few requests a minute, so batch and wait out 429s. */
-import { EMBED_MODEL } from "./place-doc";
+import { EMBED_DIMS, EMBED_MODEL } from "./place-doc";
 
 const MAX_TRIES = 4;
 const BASE_WAIT_MS = 20_000;
@@ -17,7 +17,7 @@ export async function embedDocuments(texts: string[]): Promise<number[][]> {
     const res = await fetch("https://api.voyageai.com/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: texts, model: EMBED_MODEL, input_type: "document" }),
+      body: JSON.stringify({ input: texts, model: EMBED_MODEL, input_type: "document", output_dimension: EMBED_DIMS }),
     });
 
     if (res.status === 429 && attempt < MAX_TRIES) {

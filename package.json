@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start",
     "scout:export": "tsx --env-file=.env.local scout/export-places.ts",
-    "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts"
+    "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts",
+    "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts"
   },
   "dependencies": {
     "mongodb": "^6",
