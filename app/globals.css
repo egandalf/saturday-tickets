@@ -231,3 +231,30 @@ h1, h2 {
   opacity: 0.45;
   cursor: default;
 }
+
+.origin { margin-top: 10px; }
+.origin-line { color: var(--muted); margin: 0; font-size: 0.95rem; }
+.origin-line strong { color: var(--chalk); font-weight: 600; }
+.origin-toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--solar);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.origin-picker { margin-top: 12px; display: grid; gap: 10px; max-width: 560px; }
+.origin-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.origin-radius { color: var(--muted); font-size: 0.95rem; }
+.origin-radius select {
+  font: inherit;
+  color: var(--chalk);
+  background: var(--graphite);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 6px 12px;
+  margin-left: 6px;
+}
+.origin-error { color: var(--solar); margin: 0; font-size: 0.9rem; }

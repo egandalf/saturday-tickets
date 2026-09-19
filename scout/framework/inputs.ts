@@ -4,25 +4,12 @@
  * ZIP, a town, or an address, and are stored resolved ("lat,lng,Label") so the audit log shows
  * exactly where the run looked.
  */
-import { geocode } from "../lib/geocode";
-import { APP_HOME, parseOrigin } from "../lib/origin";
+import { formatOrigin, originFromText } from "../../lib/geo";
 import type { AgentDefinition } from "./types";
 
-const HOME_ZIP = "41144";
-/** Whole counties and states are too coarse to search around. */
-const TOO_COARSE = new Set(["county", "macrocounty", "region", "macroregion", "country"]);
-
+/** A ZIP, town, address, or lat,lng → "lat,lng,Label"; the home ZIP is home exactly (same resolver as the app). */
 export async function resolvePlace(text: string): Promise<string> {
-  const value = text.trim();
-  if (!value || value === HOME_ZIP || value.toLowerCase() === "home") return `${APP_HOME.lat},${APP_HOME.lng},${APP_HOME.label}`;
-  if (/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(value)) {
-    const o = parseOrigin(value);
-    return `${o.lat},${o.lng},${o.label}`;
-  }
-  const found = (await geocode(value, 5)).filter((p) => !TOO_COARSE.has(p.layer));
-  const best = found[0];
-  if (!best) throw new Error(`couldn't find "${value}"; try a town and state, a ZIP, or lat,lng`);
-  return `${best.lat.toFixed(5)},${best.lng.toFixed(5)},${best.label.replace(/,/g, "")}`;
+  return formatOrigin(await originFromText(text));
 }
 
 /** Defaults, required fields, types; place fields geocoded. Throws with the field name. */

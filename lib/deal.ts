@@ -1,3 +1,4 @@
+import { DEFAULT_RADIUS_MILES, formatOrigin, HOME, isHome, parseOrigin, type Origin } from "./geo";
 import { log, takeCalls, withDeal } from "./log";
 import {
   appendNote,
@@ -9,6 +10,7 @@ import {
 import { PLACES, signedTags, type Place } from "./places";
 import { saturdaySunset, type SaturdaySunset } from "./sun";
 import type { DealCall } from "./trace";
+import { travelFrom, type Travel } from "./travel-time";
 
 export type { DealCall };
 
@@ -43,10 +45,15 @@ export type DealFollow = {
   slot?: number;
 };
 
-/** Family-chosen filters. Water crossings are dealt unless the family avoids them. */
+/** Family-chosen filters. Water crossings are dealt unless the family avoids them. Origin defaults to home. */
 export type DealFilters = {
   avoidWater?: boolean;
+  origin?: Origin;
+  radiusMiles?: number;
 };
+
+/** In a deal, milesFromHome and minutesOut are from the deal's origin; travelSource says how they were found. */
+type DealPlace = Place & { travelSource?: Travel["source"] };
 
 export type DealResult = {
   tickets: Ticket[];
@@ -54,13 +61,12 @@ export type DealResult = {
   calls: DealCall[];
   threadId: string;
   nodes: string[];
+  origin: Origin;
+  radiusMiles: number;
 };
 
-const HOME_RADIUS_MILES = 150;
 const SATURDAY_START = 10 * 60;
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
-const FAMILY_QUERY =
-  "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
 const SEED_RETRIEVE: RetrieveReport = {
   source: "seed",
   via: null,
@@ -120,13 +126,13 @@ function reportFromUnknown(value: unknown, mood?: Mood): RetrieveReport {
   return rec;
 }
 
-async function retrieve(mood?: Mood): Promise<{
+async function retrieve(mood: Mood | undefined, origin: Origin): Promise<{
   places: Place[];
   source: "atlas" | "seed";
   via?: "vector" | "find";
   reason?: string;
 }> {
-  const fromAtlas = await loadPlacesFromAtlas(HOME_RADIUS_MILES, FAMILY_QUERY);
+  const fromAtlas = await loadPlacesFromAtlas();
   if (fromAtlas && fromAtlas.places.length) {
     log.line("retrieve.atlas", {
       via: fromAtlas.via,
@@ -134,21 +140,44 @@ async function retrieve(mood?: Mood): Promise<{
       count: fromAtlas.places.length,
       withCredit: fromAtlas.places.filter((p) => Boolean(p.credit)).length,
       ids: fromAtlas.places.map((p) => p.id),
-      radius: HOME_RADIUS_MILES,
     });
     return { places: fromAtlas.places, source: "atlas", via: fromAtlas.via };
   }
 
-  const seed = PLACES.filter((p) => p.milesFromHome <= HOME_RADIUS_MILES && Boolean(p.photo));
+  // The seed list only knows travel from home.
+  const seed = isHome(origin) ? PLACES.filter((p) => Boolean(p.photo)) : [];
   const reason = fromAtlas ? "atlas places empty" : "atlas unavailable";
   log.line("retrieve.seed", {
     reason,
     mood: mood ?? "none",
     count: seed.length,
     ids: seed.map((p) => p.id),
-    radius: HOME_RADIUS_MILES,
+    from: origin.label,
   });
   return { places: seed, source: "seed", reason };
+}
+
+/** Drive times from the origin, then the road-mile radius. */
+async function reach(places: Place[], origin: Origin, radiusMiles: number): Promise<DealPlace[]> {
+  const { travel, skipped } = await travelFrom(origin, places, radiusMiles);
+  const kept: DealPlace[] = [];
+  const dropped = [...skipped];
+  for (const p of places) {
+    const t = travel.get(p.id);
+    if (!t) continue;
+    if (t.miles > radiusMiles) {
+      dropped.push({ id: p.id, reason: `${Math.round(t.miles)} road mi` });
+      continue;
+    }
+    kept.push({ ...p, milesFromHome: Math.round(t.miles), minutesOut: t.minutes, travelSource: t.source });
+  }
+  log.json("filter.reach", { kept: kept.map((p) => `${p.id} ${p.minutesOut}m (${p.travelSource})`), dropped }, {
+    from: origin.label,
+    radius: radiusMiles,
+    in: places.length,
+    out: kept.length,
+  });
+  return kept;
 }
 
 function rejectReason(p: Place, saturdayStartMinutes: number, duskMinutes: number): string | null {
@@ -225,13 +254,13 @@ function leaveByLabel(place: Place, duskMinutes: number): string {
   return `leave by ${clock(duskMinutes - place.minutesOut)}`;
 }
 
-function toTicket(p: Place, duskMinutes: number): Ticket {
+function toTicket(p: DealPlace, duskMinutes: number): Ticket {
   return {
     id: p.id,
     title: p.title,
     surface: p.surface,
     daylight: "BACK BEFORE DUSK",
-    drive: driveLabel(p.minutesOut),
+    drive: `${driveLabel(p.minutesOut)}${p.travelSource === "estimate" ? " (est.)" : ""}`,
     onSite: onSiteLabel(p.onSiteMinutes),
     leaveBy: leaveByLabel(p, duskMinutes),
     photo: p.photo,
@@ -277,7 +306,7 @@ async function rankWithGemini(filtered: Place[], note?: string): Promise<string[
     id: p.id,
     title: p.title,
     surface: p.surface,
-    milesFromHome: p.milesFromHome,
+    milesFromOrigin: p.milesFromHome,
   }));
   log.json("gemini.request", candidates, {
     model: GEMINI_MODEL,
@@ -393,12 +422,23 @@ function swapSlot(tickets: Ticket[], filtered: Place[], duskMinutes: number, slo
 export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: DealFilters): Promise<DealResult> {
   return withDeal(async () => {
     const t0 = Date.now();
-    const dusk = saturdaySunset();
     const followThread = follow?.threadId?.trim() || undefined;
     const threadId = followThread ?? crypto.randomUUID();
+    const notes = await loadNotes(follow?.note);
+    const slot = parseSlot(follow?.slot);
+    const swapMiddleNote = Boolean(follow?.note && /swap the middle/i.test(follow.note));
+    const revise = Boolean(followThread && (slot !== undefined || swapMiddleNote || follow?.note?.trim()));
+    const checkpoint = revise && followThread ? await loadCheckpoint(followThread) : null;
+    // A revision stays on the origin it was dealt from.
+    const origin =
+      filters?.origin ?? (typeof checkpoint?.origin === "string" ? parseOrigin(checkpoint.origin) : null) ?? HOME;
+    const radiusMiles =
+      filters?.radiusMiles ?? (typeof checkpoint?.radiusMiles === "number" ? checkpoint.radiusMiles : DEFAULT_RADIUS_MILES);
+    const dusk = saturdaySunset(new Date(), origin, origin.tz);
     log.line("deal.start", {
-      home: "41144",
-      radius: HOME_RADIUS_MILES,
+      from: origin.label,
+      tz: origin.tz,
+      radius: radiusMiles,
       mood: mood ?? "none",
       avoidWater: Boolean(filters?.avoidWater),
       saturday: dusk.date,
@@ -406,11 +446,6 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: D
       threadId,
     });
 
-    const notes = await loadNotes(follow?.note);
-    const slot = parseSlot(follow?.slot);
-    const swapMiddleNote = Boolean(follow?.note && /swap the middle/i.test(follow.note));
-    const revise = Boolean(followThread && (slot !== undefined || swapMiddleNote || follow?.note?.trim()));
-    const checkpoint = revise && followThread ? await loadCheckpoint(followThread) : null;
     const canCheckpoint =
       Boolean(checkpoint) &&
       Array.isArray(checkpoint?.filtered) &&
@@ -434,8 +469,8 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: D
       }
       log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: skipAt !== undefined, slot: skipAt ?? null });
     } else {
-      nodes = ["notes", "retrieve", "filter", "deal"];
-      const retrieved = await retrieve(mood);
+      nodes = ["notes", "retrieve", "travel", "filter", "deal"];
+      const retrieved = await retrieve(mood, origin);
       retrievePath = reportOf(retrieved, retrieved.places, mood);
       log.line("graph.retrieve", {
         source: retrievePath.source,
@@ -443,7 +478,8 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: D
         operator: retrievePath.operator,
         count: retrieved.places.length,
       });
-      filtered = waterFilter(kindFilter(hardFilter(retrieved.places, dusk), mood), Boolean(filters?.avoidWater));
+      const reachable = await reach(retrieved.places, origin, radiusMiles);
+      filtered = waterFilter(kindFilter(hardFilter(reachable, dusk), mood), Boolean(filters?.avoidWater));
       log.line("graph.filter", { mood: mood ?? "none", in: retrieved.places.length, out: filtered.length });
       tickets = rankTickets(filtered, dusk.minutes, await rankWithGemini(filtered, follow?.note));
       log.line("graph.deal", { ids: tickets.map((t) => t.id), count: tickets.length, swap: false });
@@ -459,6 +495,8 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: D
       threadId,
       mood: savedMood,
       avoidWater: savedAvoidWater,
+      origin: formatOrigin(origin),
+      radiusMiles,
       notes,
       filtered,
       tickets,
@@ -490,8 +528,9 @@ export async function dealSaturday(mood?: Mood, follow?: DealFollow, filters?: D
         count: tickets.length,
         threadId,
         nodes,
+        from: origin.label,
       },
     );
-    return { tickets, retrieve: retrievePath, calls: takeCalls(), threadId, nodes };
+    return { tickets, retrieve: retrievePath, calls: takeCalls(), threadId, nodes, origin, radiusMiles };
   });
 }

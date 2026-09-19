@@ -1,6 +1,7 @@
 export const SYSTEMS = [
   "VOYAGE",
   "ATLAS",
+  "ORS",
   "GEMINI",
   "FILTER",
   "DEAL",
@@ -19,6 +20,8 @@ export type DealCall = {
 
 const PREFIX: Record<string, Sys> = {
   voyage: "VOYAGE",
+  travel: "ORS",
+  origin: "ORS",
   mongo: "ATLAS",
   retrieve: "ATLAS",
   gemini: "GEMINI",
@@ -36,6 +39,7 @@ export function systemOf(scope: string): Sys {
 
 export const SYS_COLOR: Record<Sys, string> = {
   VOYAGE: "#bb9af7",
+  ORS: "#73daca",
   ATLAS: "#2ac3de",
   GEMINI: "#ffac00",
   FILTER: "#e0af68",
@@ -47,6 +51,7 @@ export const SYS_COLOR: Record<Sys, string> = {
 
 export const SYS_ANSI: Record<Sys, string> = {
   VOYAGE: "\x1b[35m",
+  ORS: "\x1b[96m",
   ATLAS: "\x1b[36m",
   GEMINI: "\x1b[33m",
   FILTER: "\x1b[93m",

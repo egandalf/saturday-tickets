@@ -66,6 +66,8 @@ export type Place = {
   photo: string;
   photoAlt: string;
   credit?: string;
+  /** Where the family parks. Deals from anywhere but home need it to route the drive. */
+  location?: { lat: number; lng: number };
 };
 
 /** Home is 41144 Greenup, KY. Distances from published park listings, not a POI dump. */

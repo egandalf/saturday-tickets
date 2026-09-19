@@ -15,6 +15,8 @@ Spare-time PoC. Public repo. Separate Vercel project and Blob store from `ky-dri
 
 Chips on the ticket: photo, surface (`PAVED` or `PACKED GRAVEL`), daylight (`BACK BEFORE DUSK`), and `WATER CROSSING` when the place has one.
 
+Where from: home (41144 Greenup, KY) by default. **Change** under the headline takes a town, ZIP, or address, or the device's location, and a radius (60, 90, 150, or 200 mi); the choice is remembered in a cookie and rides on the API as `?from=lat,lng,Label&radius=`. From home, drive times are the stored `milesFromHome`/`minutesOut`. From anywhere else, each place's `location` is routed with one OpenRouteService matrix call per deal (cached in Atlas `travel_cache` for 30 days); if ORS is down the ticket shows an estimate marked "(est.)". Dusk and leave-by use that Saturday's sunset in the origin's time zone. Places without a location yet deal only from home.
+
 Hard filters, not badges: turnaround, clay-when-wet refuse. Water crossings are established and assessed before scout accepts them; they are dealt unless the family picks **No water crossings** (`?water=avoid`, or `avoidWater` in the POST body). Kind tags are membership only and live in code.
 
 Visual: graphite, chalk type, Solar Yellow `#ffac00` only. No Rivian logo.
@@ -35,7 +37,7 @@ npm install
 npm run dev
 ```
 
-Copy `.env.example` to `.env.local` and set `MONGODB_URI` when Atlas exists.
+Copy `.env.example` to `.env.local` and set `MONGODB_URI` when Atlas exists. Dealing from anywhere but home needs `ORS_API_KEY` (server-only; add it to the Vercel project too).
 
 ## Agents (local only)
 
