@@ -3,8 +3,8 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Scout · Saturday tickets",
-  description: "Find, review, and promote family Saturday places. Local only.",
+  title: "Agents · Saturday tickets",
+  description: "Local agent framework: executions, audit logs, memory, and human stops. Local only.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -17,10 +17,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <nav className="nav">
           <span className="brand">
-            Scout <span className="muted">· Saturday tickets</span>
+            Agents <span className="muted">· Saturday tickets</span>
           </span>
-          <Link href="/">Runs</Link>
-          <Link href="/promote">Promote</Link>
+          <Link href="/">Inbox</Link>
+          <Link href="/agents">Agents</Link>
+          <Link href="/tools">Tools</Link>
+          <Link href="/memory">Memory</Link>
           <Link href="/places">Places</Link>
         </nav>
         <main className="page">{children}</main>

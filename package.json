@@ -8,10 +8,8 @@
     "scout:export": "tsx --env-file=.env.local scout/export-places.ts",
     "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts",
     "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts",
-    "scout": "tsx --env-file=.env.local scout/run.ts",
-    "scout:locate": "tsx --env-file=.env.local scout/locate-places.ts",
-    "scout:promote": "tsx --env-file=.env.local scout/promote.ts",
-    "scout:ui": "next dev scout/ui -p 3100"
+    "scout:ui": "next dev scout/ui -p 3100",
+    "agent": "tsx --env-file=.env.local scout/framework/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

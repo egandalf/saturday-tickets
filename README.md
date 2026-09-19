@@ -37,26 +37,25 @@ npm run dev
 
 Copy `.env.example` to `.env.local` and set `MONGODB_URI` when Atlas exists.
 
-## Scout (local only)
+## Agents (local only)
 
-`scout/` finds new places with a LangGraph graph and never deploys (the Next build excludes it). Claude Sonnet 5 researches with Tavily; a person reviews every candidate in the terminal before anything is kept. Needs `ANTHROPIC_API_KEY` and `TAVILY_API_KEY` in `.env.local`.
+`scout/framework` is a small agent framework on LangGraph and Atlas, and `scout/ui` is its local UI (`npm run scout:ui`, http://localhost:3100). Neither is part of the Vercel build. Keys come from the repo's `.env.local`: `MONGODB_URI`, `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`, `ORS_API_KEY`, `VOYAGE_API_KEY`, `BLOB_READ_WRITE_TOKEN`.
+
+- **Tools** live in code (`scout/framework/tools`): web search and page reading (Tavily), geocoding and routing from home (OpenRouteService), parking (Overpass), photos (Wikimedia Commons), memory, and output tools. Each has an effect: `read`, `stage` (framework memory only), `write` (live data; always pauses for a person), or `output` (ends the agent's work and shapes its stop).
+- **Agents** are plain-English instructions plus tools picked from the library, stored in Atlas (`agents`, `agent_versions`) and edited in the UI. Every save is a new version; every execution records the version it ran. Seeds: `discover`, `research`, `locate`.
+- **Executions** each run on their own LangGraph thread (`agent_checkpoints`), step by step: model turn, tool round, human stop. A run can pause for a person, survive a restart (Continue picks up from the last step), and resume. Children started by a handoff are independent executions.
+- **Audit log** (`execution_events`): every model turn with its summarized thinking, text, tool calls and results, memory reads and writes, human decisions, and handoffs, in order, shown as a timeline.
+- **Memory** (LangGraph store, `agent_memory`): namespaced facts (`place/<id>`, `lead/<id>`, `agent/<name>/lessons`), each linked to the execution step that wrote it.
+
+The Saturday flow: **discover** proposes leads → you select which to research (HITL) → one **research** execution per lead → you approve or reject each draft (HITL); approving runs `promote_place` (photo to Blob, upsert into `places`, tags added to `lib/places.ts` for you to commit). **locate** pins an existing place where the family parks → you approve the pin → `apply_travel` updates its drive time.
 
 ```bash
-npm run scout:ui                                    # the scout UI at http://localhost:3100
-npm run scout -- --focus=history --count=3          # thinnest kind when --focus is omitted
-npm run scout -- --origin=35.59,-82.55,"Asheville NC" --radius=50   # scout from somewhere else
-npm run scout -- --thread=<id>                      # resume a run paused at review
-npm run scout:upsert -- places.json [--write]       # validate, embed, and upsert places
-npm run scout:export                                # snapshot places to scout/data
-npm run scout:reembed [-- --write]                  # re-embed every place on the current model
-npm run scout:locate [-- --apply [--write]]         # pin places where the family parks; compare and apply drive times
-npm run scout:promote [-- --write]                  # accepted candidates → places
+npm run scout:ui                                          # Inbox, executions, agents, tools, memory, places
+npm run agent -- run discover '{"focus":"history","count":4}'
+npm run agent -- list | show <id> | stop <id> | decide <id> '<json>' | continue <id>
+npm run scout:upsert -- places.json [--write]             # validate, embed, and upsert places by hand
+npm run scout:export                                      # snapshot places to scout/data
+npm run scout:reembed [-- --write]                        # re-embed every place on the current model
 ```
 
-The scout UI is a second Next app in `scout/ui`, local only and outside the Vercel build. It reads the repo's `.env.local` on the server. **Runs** starts a run and streams the agent's log; **review** shows each candidate with its map pin, open-data flags, and photos to pick, saves each decision as a draft in any order, and stages them on Finish; **Promote** fills only what the sources and open data leave unknown, copies the photo to Blob, upserts the place, and shows the `lib/places.ts` tag diff to commit; **Places** compares stored and routed drive times, applies the ones you pick, and runs the locate agent for places without a pin. The CLI and the UI share run records (`scout_runs`, `scout_events`), so a review can start in one and finish in the other.
-
-Graph: `gap` (thinnest kind, known places) → `discover` (web search, read page, `submit_candidate`) → `review` (one interrupt per candidate, fanned out so they can be decided in any order) → `stage`.
-
-Each submitted candidate is enriched from open data before review, and the agent sees the flags so it can research and resubmit: the drive from 41144 and the last five miles of road surface, fords, ferries, and tracks (OpenRouteService on OpenStreetMap, `ORS_API_KEY`), with a ford-avoiding route for the bypass time; mapped parking and turning circles within 400 m (Overpass); and openly licensed photos within 1.5 km with author and license for `credit` (Wikimedia Commons). Unmapped is reported as unknown, not as absent. Decisions land in Atlas `candidates`; rejected ones stay so later runs skip them. Run state lives in `scout_checkpoints` and `scout_checkpoint_writes`, apart from the app's `checkpoints`.
-
-The origin and radius bound where a run looks. `milesFromHome` and `minutesOut` are always from 41144, so any accepted place can deal when it is in reach before dusk.
+The origin and radius bound where discover looks. `milesFromHome` and `minutesOut` are always routed from 41144, so any accepted place can deal when it is in reach before dusk.

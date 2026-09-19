@@ -217,49 +217,43 @@ function plain(html: string | undefined): string {
   return (html ?? "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
 
-/** Openly licensed photos within `radiusMeters`, closest first. Credit reads "Author (License)". */
-export async function photosNear(at: LatLng, radiusMeters = 1500, limit = 4): Promise<Photo[]> {
-  const params = new URLSearchParams({
+type CommonsPage = {
+  title: string;
+  coordinates?: { lat: number; lon: number }[];
+  imageinfo?: {
+    mime: string;
+    width: number;
+    height: number;
+    thumburl?: string;
+    url: string;
+    descriptionurl: string;
+    extmetadata?: Record<string, { value?: string }>;
+  }[];
+};
+
+async function commons(params: Record<string, string>): Promise<CommonsPage[]> {
+  const query = new URLSearchParams({
     action: "query",
     format: "json",
-    generator: "geosearch",
-    ggscoord: `${at.lat}|${at.lng}`,
-    ggsradius: String(radiusMeters),
-    ggsnamespace: "6",
-    ggslimit: "30",
     prop: "imageinfo|coordinates",
     iiprop: "url|extmetadata|size|mime",
     iiurlwidth: "1600",
     iiextmetadatafilter: "LicenseShortName|Artist|ImageDescription",
+    ...params,
   });
-  const res = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {
+  const res = await fetch(`https://commons.wikimedia.org/w/api.php?${query}`, {
     headers: { "User-Agent": UA },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`commons ${res.status}`);
-  const data = (await res.json()) as {
-    query?: {
-      pages?: Record<
-        string,
-        {
-          title: string;
-          coordinates?: { lat: number; lon: number }[];
-          imageinfo?: {
-            mime: string;
-            width: number;
-            height: number;
-            thumburl?: string;
-            url: string;
-            descriptionurl: string;
-            extmetadata?: Record<string, { value?: string }>;
-          }[];
-        }
-      >;
-    };
-  };
+  const data = (await res.json()) as { query?: { pages?: Record<string, CommonsPage> } };
+  return Object.values(data.query?.pages ?? {});
+}
 
+/** Landscape JPEGs, 1200px+, openly licensed; meters is -1 when there's no reference point. */
+function usablePhotos(pages: CommonsPage[], at?: LatLng): Photo[] {
   const photos: Photo[] = [];
-  for (const page of Object.values(data.query?.pages ?? {})) {
+  for (const page of pages) {
     const info = page.imageinfo?.[0];
     const meta = info?.extmetadata ?? {};
     const license = plain(meta.LicenseShortName?.value);
@@ -276,10 +270,31 @@ export async function photosNear(at: LatLng, radiusMeters = 1500, limit = 4): Pr
       license,
       credit: `${author} (${license})`,
       description: plain(meta.ImageDescription?.value).slice(0, 200),
-      meters: where ? Math.round(straightMiles(at, { lat: where.lat, lng: where.lon }) * METERS_PER_MILE) : radiusMeters,
+      meters: at && where ? Math.round(straightMiles(at, { lat: where.lat, lng: where.lon }) * METERS_PER_MILE) : -1,
     });
   }
-  return photos.sort((a, b) => a.meters - b.meters).slice(0, limit);
+  return photos;
+}
+
+/** Openly licensed photos within `radiusMeters`, closest first. Credit reads "Author (License)". */
+export async function photosNear(at: LatLng, radiusMeters = 1500, limit = 4): Promise<Photo[]> {
+  const pages = await commons({
+    generator: "geosearch",
+    ggscoord: `${at.lat}|${at.lng}`,
+    ggsradius: String(radiusMeters),
+    ggsnamespace: "6",
+    ggslimit: "30",
+  });
+  return usablePhotos(pages, at)
+    .map((p) => (p.meters < 0 ? { ...p, meters: radiusMeters } : p))
+    .sort((a, b) => a.meters - b.meters)
+    .slice(0, limit);
+}
+
+/** Openly licensed photos found by name, for places whose photos aren't geotagged. */
+export async function photosByName(query: string, limit = 6): Promise<Photo[]> {
+  const pages = await commons({ generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "20" });
+  return usablePhotos(pages).slice(0, limit);
 }
 
 export async function enrich(at: LatLng): Promise<Enrichment> {

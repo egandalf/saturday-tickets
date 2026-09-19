@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { applyTravelAction, locateAction } from "../app/actions";
-import { clock, mapEmbed, mapLink, type EventDoc, type TravelRow } from "../lib/types";
+import { clock, mapEmbed, mapLink, type TravelRow } from "../lib/types";
 
 const FAR_FROM_ROAD_MILES = 0.25;
 
@@ -11,26 +12,14 @@ function delta(r: TravelRow): number | null {
   return r.routed ? r.routed.minutes - r.stored.minutes : null;
 }
 
-export function PlacesTable({ rows, locatingNow }: { rows: TravelRow[]; locatingNow: boolean }) {
+export function PlacesTable({ rows }: { rows: TravelRow[] }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [locating, setLocating] = useState(locatingNow);
-  const [log, setLog] = useState<EventDoc[]>([]);
-
-  useEffect(() => {
-    if (!locating) return;
-    const timer = setInterval(async () => {
-      const res = await fetch("/api/locate", { cache: "no-store" });
-      const data = (await res.json()) as { active: boolean; events: EventDoc[] };
-      setLog(data.events);
-      router.refresh();
-      if (!data.active) setLocating(false);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [locating, router]);
+  const [locating, setLocating] = useState(false);
+  const [started, setStarted] = useState<string[]>([]);
 
   const pending = rows.filter((r) => r.routed && !r.applied);
   const unlocated = rows.filter((r) => !r.routed);
@@ -52,10 +41,12 @@ export function PlacesTable({ rows, locatingNow }: { rows: TravelRow[]; locating
     router.refresh();
   }
 
-  async function locate(ids: string[] | null) {
+  async function locate(targets: TravelRow[]) {
     setMessage(null);
-    const result = await locateAction(ids);
-    if (result.ok) setLocating(true);
+    setLocating(true);
+    const result = await locateAction(targets.map((r) => ({ placeId: r.id, title: r.title, photoAlt: r.photoAlt, note: r.note })));
+    setLocating(false);
+    if (result.ok) setStarted((s) => [...s, ...result.ids]);
     else setMessage(result.error);
   }
 
@@ -71,19 +62,23 @@ export function PlacesTable({ rows, locatingNow }: { rows: TravelRow[]; locating
         <button className="primary" type="button" onClick={apply} disabled={!selected.size || busy}>
           {busy ? "Applying…" : `Apply ${selected.size || ""} routed`}
         </button>
-        <button type="button" onClick={() => locate(null)} disabled={locating || !unlocated.length}>
-          {locating ? "Locating…" : `Locate ${unlocated.length} unpinned`}
+        <button type="button" onClick={() => locate(unlocated)} disabled={locating || !unlocated.length}>
+          {`Locate ${unlocated.length} unpinned`}
         </button>
         {message ? <span className="small">{message}</span> : null}
       </div>
 
-      {locating || log.length ? (
-        <div className="log mono">
-          {log.map((e, i) => (
-            <div key={i}>{e.line}</div>
+      {started.length ? (
+        <p className="panel small">
+          Started {started.length} locate execution(s):{" "}
+          {started.map((id, i) => (
+            <span key={id}>
+              {i ? ", " : ""}
+              <Link href={`/executions/${id}`}>{id.slice(0, 8)}</Link>
+            </span>
           ))}
-          {locating ? <div className="status-running">…locating</div> : null}
-        </div>
+          . Their pins wait for your approval in the <Link href="/">Inbox</Link>.
+        </p>
       ) : null}
 
       <div className="panel table-wrap">
@@ -135,7 +130,7 @@ export function PlacesTable({ rows, locatingNow }: { rows: TravelRow[]; locating
                           {r.applied ? <span className="chip good" style={{ marginLeft: 8 }}>applied</span> : null}
                         </>
                       ) : (
-                        <button type="button" onClick={() => locate([r.id])} disabled={locating}>
+                        <button type="button" onClick={() => locate([r])} disabled={locating}>
                           Locate
                         </button>
                       )}
@@ -175,7 +170,7 @@ export function PlacesTable({ rows, locatingNow }: { rows: TravelRow[]; locating
                               </a>{" "}
                               · {r.routed.lat}, {r.routed.lng}
                             </p>
-                            <button type="button" onClick={() => locate([r.id])} disabled={locating}>
+                            <button type="button" onClick={() => locate([r])} disabled={locating}>
                               Locate again
                             </button>
                           </div>

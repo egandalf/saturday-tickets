@@ -3,10 +3,8 @@
  * file, and the person signs by reviewing the diff and committing it.
  */
 import { readFile, writeFile } from "node:fs/promises";
-import type { KINDS } from "./candidate";
+import type { Kind } from "../../lib/places";
 import { PLACES_TS } from "./paths";
-
-type Kind = (typeof KINDS)[number];
 
 function listName(kind: Kind): string {
   return `SIGNED_${kind.toUpperCase()}_IDS`;

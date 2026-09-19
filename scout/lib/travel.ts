@@ -29,6 +29,8 @@ export type TravelRow = {
   id: string;
   title: string;
   photo: string;
+  photoAlt: string;
+  note: string;
   tags: string[];
   surface: string;
   onSiteMinutes: number;
@@ -68,6 +70,8 @@ export async function travelRows(db: Db): Promise<TravelRow[]> {
       id: String(doc.id),
       title: String(doc.title),
       photo: String(doc.photo),
+      photoAlt: String(doc.photoAlt ?? ""),
+      note: String(doc.note ?? ""),
       tags: signedTags(String(doc.id)),
       surface: String(doc.surface),
       onSiteMinutes: onSite,
@@ -95,6 +99,28 @@ export async function travelRows(db: Db): Promise<TravelRow[]> {
   });
 }
 
+function travelUpdate(doc: Document, hit: Located): AnyBulkWriteOperation<Document> {
+  const minutes = hit.route.minutes;
+  return {
+    updateOne: {
+      filter: { _id: doc._id },
+      update: {
+        $set: {
+          location: { type: "Point", coordinates: [hit.lng, hit.lat] },
+          locationWhat: hit.what,
+          locationSource: hit.source,
+          milesFromHome: Math.round(hit.route.miles),
+          minutesOut: minutes,
+          duskOk: duskOk({ minutesOut: minutes, onSiteMinutes: Number(doc.onSiteMinutes) }),
+          travelFrom: { origin: APP_HOME, routedAt: hit.at },
+          // Keep the first stored values, not the last applied ones.
+          travelPrevious: doc.travelPrevious ?? { milesFromHome: doc.milesFromHome, minutesOut: doc.minutesOut },
+        },
+      },
+    },
+  };
+}
+
 /** Write routed travel for these ids (all located places when omitted). */
 export async function applyTravel(db: Db, ids?: string[]): Promise<number> {
   const found = await loadLocations();
@@ -102,31 +128,19 @@ export async function applyTravel(db: Db, ids?: string[]): Promise<number> {
   const docs = await places
     .find(ids ? { id: { $in: ids } } : { id: { $in: Object.keys(found) } }, { projection: { embedding: 0 } })
     .toArray();
-  const writes: AnyBulkWriteOperation<Document>[] = docs.flatMap((doc) => {
-    const hit = found[String(doc.id)];
-    if (!hit) return [];
-    const minutes = hit.route.minutes;
-    return [
-      {
-        updateOne: {
-          filter: { _id: doc._id },
-          update: {
-            $set: {
-              location: { type: "Point", coordinates: [hit.lng, hit.lat] },
-              locationWhat: hit.what,
-              locationSource: hit.source,
-              milesFromHome: Math.round(hit.route.miles),
-              minutesOut: minutes,
-              duskOk: duskOk({ minutesOut: minutes, onSiteMinutes: Number(doc.onSiteMinutes) }),
-              travelFrom: { origin: APP_HOME, routedAt: hit.at },
-              // Keep the first stored values, not the last applied ones.
-              travelPrevious: doc.travelPrevious ?? { milesFromHome: doc.milesFromHome, minutesOut: doc.minutesOut },
-            },
-          },
-        },
-      },
-    ];
-  });
+  const writes = docs.flatMap((doc) => (found[String(doc.id)] ? [travelUpdate(doc, found[String(doc.id)])] : []));
   if (!writes.length) return 0;
   return (await places.bulkWrite(writes)).modifiedCount;
+}
+
+/** Record one finding (from the locate agent) and write it to the place. */
+export async function applyLocated(db: Db, hit: Located): Promise<{ previous: { miles: number; minutes: number } }> {
+  const places = db.collection("places");
+  const doc = await places.findOne({ id: hit.id }, { projection: { embedding: 0 } });
+  if (!doc) throw new Error(`no place ${hit.id}`);
+  const found = await loadLocations();
+  found[hit.id] = hit;
+  await saveLocations(found);
+  await places.bulkWrite([travelUpdate(doc, hit)]);
+  return { previous: { miles: Number(doc.milesFromHome), minutes: Number(doc.minutesOut) } };
 }
