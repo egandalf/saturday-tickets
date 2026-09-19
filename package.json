@@ -7,9 +7,14 @@
     "start": "next start",
     "scout:export": "tsx --env-file=.env.local scout/export-places.ts",
     "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts",
-    "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts"
+    "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts",
+    "scout": "tsx --env-file=.env.local scout/run.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
+    "@langchain/core": "^1.2.11",
+    "@langchain/langgraph": "^1.4.16",
+    "@langchain/langgraph-checkpoint-mongodb": "^1.4.1",
     "mongodb": "^6",
     "next": "^15",
     "react": "^19",

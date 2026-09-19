@@ -36,3 +36,20 @@ npm run dev
 ```
 
 Copy `.env.example` to `.env.local` and set `MONGODB_URI` when Atlas exists.
+
+## Scout (local only)
+
+`scout/` finds new places with a LangGraph graph and never deploys (the Next build excludes it). Claude Sonnet 5 researches with Tavily; a person reviews every candidate in the terminal before anything is kept. Needs `ANTHROPIC_API_KEY` and `TAVILY_API_KEY` in `.env.local`.
+
+```bash
+npm run scout -- --focus=history --count=3          # thinnest kind when --focus is omitted
+npm run scout -- --origin=35.59,-82.55,"Asheville NC" --radius=50   # scout from somewhere else
+npm run scout -- --thread=<id>                      # resume a run paused at review
+npm run scout:upsert -- places.json [--write]       # validate, embed, and upsert places
+npm run scout:export                                # snapshot places to scout/data
+npm run scout:reembed [-- --write]                  # re-embed every place on the current model
+```
+
+Graph: `gap` (thinnest kind, known places) → `discover` (web search, read page, `submit_candidate`) → `review` (one interrupt per candidate) → `stage`. Decisions land in Atlas `candidates`; rejected ones stay so later runs skip them. Run state lives in `scout_checkpoints` and `scout_checkpoint_writes`, apart from the app's `checkpoints`.
+
+The origin and radius bound where a run looks. `milesFromHome` and `minutesOut` are always from 41144, so any accepted place can deal when it is in reach before dusk.
