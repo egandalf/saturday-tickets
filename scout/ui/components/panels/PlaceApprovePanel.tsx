@@ -20,7 +20,10 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
   const [title, setTitle] = useState(draft.title);
   const [surface, setSurface] = useState<string>(draft.surface !== "UNKNOWN" ? draft.surface : suggested);
   const [turnaround, setTurnaround] = useState<YesNo>(draft.turnaround);
-  const [clay, setClay] = useState<YesNo>(draft.clayWhenWet);
+  // Clay only matters off pavement: a paved approach with nothing rough mapped settles it.
+  const pavedClean = (draft.surface === "PAVED" || (draft.surface === "UNKNOWN" && suggested === "PAVED")) && route?.approach.rough === 0;
+  const clayInferred = draft.clayWhenWet === "unknown" && pavedClean;
+  const [clay, setClay] = useState<YesNo>(clayInferred ? "no" : draft.clayWhenWet);
   const [onSite, setOnSite] = useState(draft.onSiteMinutes);
   const [tags, setTags] = useState<Kind[]>(draft.kinds);
   const [note, setNote] = useState("");
@@ -39,14 +42,33 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
   };
   const photo = photoIndex === null ? { source: custom.source, credit, alt } : { source: photoOptions[photoIndex].url, credit, alt };
 
-  const missing = [
-    !route ? "a routed drive (route failed)" : null,
-    surface !== "PAVED" && surface !== "PACKED GRAVEL" ? "surface" : null,
-    turnaround !== "yes" ? "turnaround must be yes" : null,
-    clay !== "no" ? "clay when wet must be no" : null,
-    !tags.length ? "tags" : null,
-    !photo.source.trim() || !photo.credit.trim() || photo.alt.trim().length < 8 ? "photo, credit, alt (8+ chars)" : null,
-  ].filter(Boolean);
+  type Need = { id: string; text: string };
+  const needs = [
+    !route ? { id: "need-route", text: "The drive from home couldn't be routed; reject this one or re-run research." } : null,
+    surface !== "PAVED" && surface !== "PACKED GRAVEL" ? { id: "need-surface", text: "Surface: choose paved or packed gravel." } : null,
+    turnaround === "no"
+      ? { id: "need-turnaround", text: "Turnaround is no, so it isn't a fit; reject it, or change it if that's wrong." }
+      : turnaround !== "yes"
+        ? { id: "need-turnaround", text: "Turnaround: the agent couldn't confirm room to turn around. Set yes if there is." }
+        : null,
+    clay === "yes"
+      ? { id: "need-clay", text: "Clay when wet is yes, so it isn't a fit; reject it, or change it if that's wrong." }
+      : clay !== "no"
+        ? { id: "need-clay", text: "Clay when wet: the agent couldn't confirm the road in has no slick clay. Set no if it doesn't." }
+        : null,
+    !tags.length ? { id: "need-tags", text: "Tags: pick at least one." } : null,
+    !photo.source.trim() ? { id: "need-photo", text: "Photo: pick one, or add your own." } : null,
+    photo.source.trim() && !photo.credit.trim() ? { id: "need-credit", text: "Photo credit." } : null,
+    photo.source.trim() && photo.alt.trim().length < 8 ? { id: "need-alt", text: "Alt text: say what the photo shows (8+ characters)." } : null,
+  ].filter((n): n is Need => n !== null);
+  const blocked = new Set(needs.map((n) => n.id));
+  const mark = (id: string) => (blocked.has(id) ? "needs" : "");
+  const jump = (id: string) => {
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.querySelector<HTMLElement>("select, input, button")?.focus();
+  };
+  const missing = needs;
 
   function approve() {
     let waterCrossingAssessment = draft.waterCrossingAssessment;
@@ -83,6 +105,11 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
   return (
     <div className="stack">
       <h2>Approve {draft.title}?</h2>
+      {needs.length ? (
+        <p className="needs-note">
+          {needs.length} thing{needs.length === 1 ? "" : "s"} need{needs.length === 1 ? "s" : ""} you before approving; they&apos;re outlined below.
+        </p>
+      ) : null}
       <p>{draft.summary}</p>
       {flags.map((f) => (
         <p key={f} className="flag small">
@@ -116,7 +143,7 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
             ) : null}
           </dl>
           <div className="row">
-            <label>
+            <label id="need-surface" className={mark("need-surface")}>
               Surface
               <select value={surface} onChange={(e) => setSurface(e.target.value)}>
                 <option value="">choose…</option>
@@ -124,8 +151,13 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
                 <option value="PACKED GRAVEL">packed gravel</option>
               </select>
             </label>
-            <label>Turnaround {select(turnaround, setTurnaround)}</label>
-            <label>Clay when wet {select(clay, setClay)}</label>
+            <label id="need-turnaround" className={mark("need-turnaround")}>
+              Turnaround {select(turnaround, setTurnaround)}
+            </label>
+            <label id="need-clay" className={mark("need-clay")}>
+              Clay when wet {select(clay, setClay)}
+              {clayInferred && clay === "no" ? <span className="small muted">no: paved approach, nothing rough mapped</span> : null}
+            </label>
             <label>
               On site (min)
               <input type="number" value={onSite} min={30} max={480} onChange={(e) => setOnSite(Number(e.target.value))} style={{ width: 90 }} />
@@ -168,7 +200,7 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
         </p>
       ))}
 
-      <div className="stack">
+      <div id="need-photo" className={`stack ${mark("need-photo")}`}>
         <p className="kicker">Photo for the ticket</p>
         <div className="photos">
           {photoOptions.map((p, i) => (
@@ -188,18 +220,18 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
           </label>
         ) : null}
         <div className="row">
-          <label className="grow">
+          <label id="need-credit" className={`grow ${mark("need-credit")}`}>
             Credit
             <input value={credit} onChange={(e) => setCredit(e.target.value)} />
           </label>
-          <label className="grow">
+          <label id="need-alt" className={`grow ${mark("need-alt")}`}>
             Alt text: what the photo shows
             <input value={alt} onChange={(e) => setAlt(e.target.value)} />
           </label>
         </div>
       </div>
 
-      <div className="row">
+      <div id="need-tags" className={`row ${mark("need-tags")}`}>
         <span className="muted small">Tags</span>
         {KIND_LIST.map((k) => (
           <button key={k} type="button" aria-pressed={tags.includes(k)} onClick={() => setTags((t) => (t.includes(k) ? t.filter((x) => x !== k) : [...t, k]))}>
@@ -213,8 +245,29 @@ export function PlaceApprovePanel({ out, busy, onDecide }: { out: PlaceDraft; bu
       </div>
 
       <div className="row">
-        <span className="grow small muted">{missing.length ? `Still needed: ${missing.join(", ")}` : `Approving copies the photo to Blob, adds ${title} to places, and adds its tags to lib/places.ts.`}</span>
-        <button className="primary" type="button" disabled={busy || Boolean(missing.length)} onClick={approve}>
+        {needs.length ? (
+          <div className="needs-box grow">
+            <p className="kicker">To approve, settle</p>
+            <ul>
+              {needs.map((n) => (
+                <li key={n.id}>
+                  <button type="button" className="link" onClick={() => jump(n.id)}>
+                    {n.text}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <span className="grow small muted">Approving copies the photo to Blob, adds {title} to places, and adds its tags to lib/places.ts.</span>
+        )}
+        <button
+          className="primary"
+          type="button"
+          disabled={busy || Boolean(missing.length)}
+          title={needs.length ? `Still needed: ${needs.map((n) => n.text).join(" ")}` : undefined}
+          onClick={approve}
+        >
           Approve and promote
         </button>
       </div>

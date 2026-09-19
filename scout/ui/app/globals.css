@@ -209,3 +209,23 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; letter-spacing: 
 .ev-start { color: var(--muted); }
 .ev pre { margin: 6px 0 0; max-height: 360px; overflow: auto; }
 textarea { width: 100%; }
+
+/* Fields a person still has to settle before approving. */
+.needs { outline: 2px solid var(--solar); outline-offset: 4px; border-radius: 8px; }
+label.needs { color: var(--solar); }
+.needs-note { color: var(--solar); font-weight: 600; margin: 0; }
+.needs-box { border: 1px solid var(--solar); border-radius: 10px; padding: 10px 14px; }
+.needs-box ul { margin: 0; padding-left: 18px; }
+.needs-box li + li { margin-top: 4px; }
+button.link {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+  color: var(--solar);
+  font-weight: 400;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+button.link:hover:not(:disabled) { color: var(--chalk); }
