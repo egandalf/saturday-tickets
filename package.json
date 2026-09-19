@@ -5,13 +5,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "scout:export": "tsx --env-file=.env.local scout/export-places.ts"
+    "scout:export": "tsx --env-file=.env.local scout/export-places.ts",
+    "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts"
   },
   "dependencies": {
     "mongodb": "^6",
     "next": "^15",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22",
