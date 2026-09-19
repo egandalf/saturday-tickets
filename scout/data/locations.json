@@ -1,0 +1,352 @@
+{
+  "ashland-floodwall": {
+    "id": "ashland-floodwall",
+    "title": "Ashland floodwall",
+    "lat": 38.477762,
+    "lng": -82.63964,
+    "what": "Parking lot at Ashland Riverfront Park (50 15th St), adjacent to the floodwall murals along the Ohio River - best guess for floodwall viewing/parking spot",
+    "source": "https://www.ashlandky.gov/residents/what_to_do_in_ashland/attractions/the_statues_of_ashland.php",
+    "route": {
+      "miles": 15.3,
+      "minutes": 19,
+      "snapMiles": 0.02,
+      "approach": {
+        "paved": 0.21,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 4.79
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:49:17.407Z"
+  },
+  "beech-fork": {
+    "id": "beech-fork",
+    "title": "Beech Fork SP",
+    "lat": 38.3106,
+    "lng": -82.3577,
+    "what": "Beech Fork State Park boat dock/paved boat launch on Beech Fork Lake, located between the Lakeview and Four Coves campgrounds (inferred midpoint between those campground coordinates; not pinpointed on an official map)",
+    "source": "https://champagne-tastes.com/beech-fork-state-park",
+    "route": {
+      "miles": 41.5,
+      "minutes": 59,
+      "snapMiles": 0.01,
+      "approach": {
+        "paved": 2.02,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 2.98
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:58:54.118Z"
+  },
+  "bennetts-mill": {
+    "id": "bennetts-mill",
+    "title": "Bennett's Mill Covered Bridge",
+    "lat": 38.63056,
+    "lng": -82.92694,
+    "what": "Bennett's Mill Covered Bridge - paved approach/parking area at the bridge on Brown Covered Bridge Road (CR 2125) over Tygarts Creek. Coordinates confirmed via Wikipedia/NRHP listing; exact pull-off spot inferred from bridge location itself since it's a small rural site with roadside parking at both ends.",
+    "source": "https://en.wikipedia.org/wiki/Bennett%27s_Mill_Covered_Bridge",
+    "route": {
+      "miles": 12.1,
+      "minutes": 17,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:47:38.136Z"
+  },
+  "carter-caves": {
+    "id": "carter-caves",
+    "title": "Carter Caves",
+    "lat": 38.374889,
+    "lng": -83.130527,
+    "what": "Carter Caves State Resort Park Welcome Center parking lot (paved), near park entrance off Caveland Dr — best guess for the paved park roadway photo since it's the main hub for park roads/trails",
+    "source": "https://kentuckystateparks.reserveamerica.com/camping/carter-caves-state-resort-park/r/campgroundDetails.do?contractCode=KY&parkId=91903",
+    "route": {
+      "miles": 53.7,
+      "minutes": 74,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0.68,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 4.32
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:49:38.970Z"
+  },
+  "grayson-lake": {
+    "id": "grayson-lake",
+    "title": "Grayson Lake",
+    "lat": 38.200066,
+    "lng": -83.026019,
+    "what": "Grayson Lake State Park main office/campground area parking lot (314 Grayson Lake Park Rd) - best guess for generic park visit since photo doesn't specify a particular feature",
+    "source": "https://www.campsitephotos.com/campground/ky/grayson-lake-state-park",
+    "route": {
+      "miles": 50.1,
+      "minutes": 70,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0.18,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 4.82
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:50:32.987Z"
+  },
+  "greenbo": {
+    "id": "greenbo",
+    "title": "Greenbo Lake",
+    "lat": 38.479609,
+    "lng": -82.88032,
+    "what": "Parking lot at Buffalo Iron Furnace, Greenbo Lake State Resort Park (near entrance off KY-1711)",
+    "source": "https://www.hmdb.org/m.asp?m=73782",
+    "route": {
+      "miles": 24.7,
+      "minutes": 38,
+      "snapMiles": 0.01,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:41:03.182Z"
+  },
+  "jesse-stuart": {
+    "id": "jesse-stuart",
+    "title": "Jesse Stuart SNP",
+    "lat": 38.547156,
+    "lng": -82.841593,
+    "what": "Trailhead parking lot for Jesse Stuart State Nature Preserve on W-Hollow Rd (confirmed via posted trailhead coordinates and matched mapped lot)",
+    "source": "https://thehikingfamily.com/ksnp-jesse-stuart",
+    "route": {
+      "miles": 16.1,
+      "minutes": 22,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:47:21.279Z"
+  },
+  "oldtown-bridge": {
+    "id": "oldtown-bridge",
+    "title": "Oldtown Covered Bridge",
+    "lat": 38.4314,
+    "lng": -82.895,
+    "what": "Oldtown Covered Bridge parking/pull-off on Frazer Branch Road at the bridge itself (Wikipedia-confirmed coordinates for the bridge; exact paved lot not separately mapped, so pin is the bridge/roadside spot where visitors park)",
+    "source": "https://en.wikipedia.org/wiki/Oldtown_Covered_Bridge",
+    "route": {
+      "miles": 28.8,
+      "minutes": 43,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:48:42.828Z"
+  },
+  "paintsville-lake": {
+    "id": "paintsville-lake",
+    "title": "Paintsville Lake SP",
+    "lat": 37.841366,
+    "lng": -82.880497,
+    "what": "Paved parking lot at Paintsville Lake State Park marina/day-use area (not the WMA gravel lots)",
+    "source": "https://stateparks.com/paintsville_lake_state_park_in_kentucky.html",
+    "route": {
+      "miles": 75.6,
+      "minutes": 89,
+      "snapMiles": 0.01,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:43:59.041Z"
+  },
+  "portsmouth-murals": {
+    "id": "portsmouth-murals",
+    "title": "Portsmouth murals",
+    "lat": 38.731287,
+    "lng": -83.005547,
+    "what": "Paved parking lot at the Scioto County Welcome Center (342 2nd St), the marked starting point/parking for the Portsmouth Floodwall Murals along the Boneyfiddle Walkway on Front St. High confidence - this is the official visitor parking for the mural tour.",
+    "source": "https://www.consistentlycurious.com/portsmouth-ohio-floodwall-murals",
+    "route": {
+      "miles": 21.2,
+      "minutes": 28,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0.76,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 4.24
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:55:08.128Z"
+  },
+  "ritter-park": {
+    "id": "ritter-park",
+    "title": "Huntington Ritter Park",
+    "lat": 38.4071,
+    "lng": -82.440958,
+    "what": "Public parking lot near Ritter Park's stone entrance gates/bridges at 10th Street & 13th Avenue, where paved footbridges cross Four Pole Creek (best-guess based on historic district description; not pinned to an exact photographed bridge)",
+    "source": "https://wvculture.org/wp-content/uploads/2021/03/Ritter-park-historic-district.pdf",
+    "route": {
+      "miles": 29.3,
+      "minutes": 39,
+      "snapMiles": 0.03,
+      "approach": {
+        "paved": 5,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 0
+      },
+      "suggestedSurface": "PAVED",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:53:42.390Z"
+  },
+  "shawnee-lodge": {
+    "id": "shawnee-lodge",
+    "title": "Shawnee State Park lodge",
+    "lat": 38.742201,
+    "lng": -83.202736,
+    "what": "Parking lot at Shawnee State Park Lodge (Shawnee Lodge & Conference Center), 4404B State Route 125, West Portsmouth, OH — lot adjacent to lodge/heliport, high confidence",
+    "source": "https://www.shawneeparklodge.com/directions",
+    "route": {
+      "miles": 36,
+      "minutes": 48,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:56:23.893Z"
+  },
+  "shawnee-packed": {
+    "id": "shawnee-packed",
+    "title": "Shawnee packed forest roads",
+    "lat": 38.693222,
+    "lng": -83.128917,
+    "what": "Picnic Point overlook, Shawnee State Forest (best available coordinate, from Wikipedia's geotag for the \"View from Picnic Point\" photo; exact pull-off not independently confirmed)",
+    "source": "https://en.wikipedia.org/wiki/Shawnee_State_Forest",
+    "route": {
+      "miles": 32.8,
+      "minutes": 43,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:46:42.829Z"
+  },
+  "vesuvius-beach": {
+    "id": "vesuvius-beach",
+    "title": "Lake Vesuvius dam/beach",
+    "lat": 38.620283,
+    "lng": -82.629165,
+    "what": "Big Bend Beach parking lot at Lake Vesuvius (Wayne National Forest swimming beach) — matches USFS GPS coords 38°37'12\"N/82°37'43\"W for the beach",
+    "source": "https://www.fs.usda.gov/r09/wayne/recreation/big-bend-swimming-beach",
+    "route": {
+      "miles": 19.2,
+      "minutes": 29,
+      "snapMiles": 0.46,
+      "approach": {
+        "paved": 2.7,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 2.3
+      },
+      "suggestedSurface": "PAVED",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T18:51:10.683Z"
+  }
+}

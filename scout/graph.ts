@@ -4,7 +4,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { Annotation, END, interrupt, START, StateGraph, type LangGraphRunnableConfig } from "@langchain/langgraph";
+import { Annotation, END, interrupt, Send, START, StateGraph, type LangGraphRunnableConfig } from "@langchain/langgraph";
 import type { Db } from "mongodb";
 import { z } from "zod";
 import { signedTags } from "../lib/places";
@@ -20,14 +20,24 @@ type Known = { id: string; title: string; source: "places" | "candidates"; statu
 
 export type ReviewRequest = { index: number; total: number; candidate: Scouted; run: Run };
 
+/** Progress lines for whoever is watching: the terminal, or the scout UI's run log. */
+export type Emit = (threadId: string, line: string) => void;
+
+const consoleEmit: Emit = (_threadId, line) => console.log(line);
+
+function threadOf(config: LangGraphRunnableConfig): string {
+  return String(config.configurable?.thread_id ?? "");
+}
+
 export const ScoutState = Annotation.Root({
   run: Annotation<Run>,
   focus: Annotation<string | null>,
   count: Annotation<number>,
   known: Annotation<Known[]>,
   candidates: Annotation<Scouted[]>,
-  reviewAt: Annotation<number>,
   decisions: Annotation<Decision[]>({ reducer: (a, b) => a.concat(b), default: () => [] }),
+  /** Set only on the per-candidate review tasks fanned out by Send. */
+  reviewing: Annotation<ReviewRequest | null>,
 });
 
 type State = typeof ScoutState.State;
@@ -65,8 +75,8 @@ function brief(state: State): string {
 }
 
 /** Load what's known and pick the thinnest kind when the run didn't name a focus. */
-function gapNode(db: Db) {
-  return async (state: State): Promise<Partial<State>> => {
+function gapNode(db: Db, emit: Emit) {
+  return async (state: State, config: LangGraphRunnableConfig): Promise<Partial<State>> => {
     const places = await db.collection("places").find({}, { projection: { _id: 0, id: 1, title: 1 } }).toArray();
     const staged = await db
       .collection("candidates")
@@ -80,13 +90,14 @@ function gapNode(db: Db) {
     const counts = Object.fromEntries(KINDS.map((k) => [k, 0])) as Record<(typeof KINDS)[number], number>;
     for (const p of places) for (const tag of signedTags(String(p.id))) counts[tag]++;
     const focus = state.focus ?? KINDS.reduce((a, b) => (counts[b] < counts[a] ? b : a));
-    console.log(`gap: ${KINDS.map((k) => `${k} ${counts[k]}`).join(", ")} → focus ${focus}; ${known.length} known`);
-    return { known, focus, candidates: [], reviewAt: 0 };
+    emit(threadOf(config), `gap: ${KINDS.map((k) => `${k} ${counts[k]}`).join(", ")} → focus ${focus}; ${known.length} known`);
+    return { known, focus, candidates: [] };
   };
 }
 
-function discoverNode(client: Anthropic) {
-  return async (state: State): Promise<Partial<State>> => {
+function discoverNode(client: Anthropic, emit: Emit) {
+  return async (state: State, config: LangGraphRunnableConfig): Promise<Partial<State>> => {
+    const say = (line: string) => emit(threadOf(config), line);
     const found: Scouted[] = [];
     const ids = new Set(state.known.map((k) => k.id));
     const titles = new Map(state.known.map((k) => [normalizeTitle(k.title), k.id]));
@@ -159,32 +170,36 @@ function discoverNode(client: Anthropic) {
         if (block.type === "tool_use") {
           const input = block.input as Record<string, unknown>;
           const shown = block.name === "submit_candidate" ? `${input.id} · ${input.title}` : JSON.stringify(input);
-          console.log(`  ${block.name}  ${shown.length > 140 ? `${shown.slice(0, 140)}…` : shown}`);
+          say(`  ${block.name}  ${shown.length > 140 ? `${shown.slice(0, 140)}…` : shown}`);
         }
       }
-      if (message.stop_reason === "refusal") console.log(`  refusal: ${JSON.stringify(message.stop_details)}`);
+      if (message.stop_reason === "refusal") say(`  refusal: ${JSON.stringify(message.stop_details)}`);
     }
     const final = await runner.done();
     const summary = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(" ").trim();
-    console.log(`discover: ${found.length} candidates in ${turns} turns (${final.stop_reason})${summary ? `\n  ${summary}` : ""}`);
+    say(`discover: ${found.length} candidates in ${turns} turns (${final.stop_reason})`);
+    if (summary) say(`  ${summary}`);
     return { candidates: found };
   };
 }
 
+/** One task per candidate, each paused on its own interrupt, so they can be decided in any order. */
 function reviewNode(state: State): Partial<State> {
-  const request: ReviewRequest = {
-    index: state.reviewAt,
-    total: state.candidates.length,
-    candidate: state.candidates[state.reviewAt],
-    run: state.run,
-  };
-  const decision = interrupt<ReviewRequest, Decision>(request);
-  return { decisions: [decision], reviewAt: state.reviewAt + 1 };
+  const decision = interrupt<ReviewRequest, Decision>(state.reviewing!);
+  return { decisions: [decision] };
 }
 
-function stageNode(db: Db) {
+function fanOut(state: State): Send[] | typeof END {
+  if (!state.candidates.length) return END;
+  return state.candidates.map(
+    (candidate, index) =>
+      new Send("review", { reviewing: { index, total: state.candidates.length, candidate, run: state.run } }),
+  );
+}
+
+function stageNode(db: Db, emit: Emit) {
   return async (state: State, config: LangGraphRunnableConfig): Promise<Partial<State>> => {
-    const threadId = String(config.configurable?.thread_id ?? "");
+    const threadId = threadOf(config);
     const byId = new Map(state.candidates.map((c) => [c.id, c]));
     const now = new Date();
     const writes = state.decisions.flatMap((d) => {
@@ -208,20 +223,22 @@ function stageNode(db: Db) {
     });
     if (writes.length) await db.collection("candidates").bulkWrite(writes);
     const tally = (k: Decision["decision"]) => state.decisions.filter((d) => d.decision === k).length;
-    console.log(`stage: ${tally("accept")} accepted, ${tally("reject")} rejected, ${tally("skip")} skipped → ${db.databaseName}.candidates`);
+    emit(threadId, `stage: ${tally("accept")} accepted, ${tally("reject")} rejected, ${tally("skip")} skipped → ${db.databaseName}.candidates`);
     return {};
   };
 }
 
-export function buildGraph(db: Db, client = new Anthropic()) {
+export function buildGraph(db: Db, options: { client?: Anthropic; emit?: Emit } = {}) {
+  const client = options.client ?? new Anthropic();
+  const emit = options.emit ?? consoleEmit;
   return new StateGraph(ScoutState)
-    .addNode("gap", gapNode(db))
-    .addNode("discover", discoverNode(client))
+    .addNode("gap", gapNode(db, emit))
+    .addNode("discover", discoverNode(client, emit))
     .addNode("review", reviewNode)
-    .addNode("stage", stageNode(db))
+    .addNode("stage", stageNode(db, emit))
     .addEdge(START, "gap")
     .addEdge("gap", "discover")
-    .addConditionalEdges("discover", (s: State) => (s.candidates.length ? "review" : END), ["review", END])
-    .addConditionalEdges("review", (s: State) => (s.reviewAt < s.candidates.length ? "review" : "stage"), ["review", "stage"])
+    .addConditionalEdges("discover", fanOut, ["review", END])
+    .addEdge("review", "stage")
     .addEdge("stage", END);
 }

@@ -1,11 +1,12 @@
 /** Local only. Snapshot Atlas `places` (no vectors) with signed tags from code, before scout writes anything. */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { SCOUT_DATA } from "./lib/paths";
 import { MongoClient, type Document } from "mongodb";
 import { dbFromUri } from "../lib/log";
 import { signedTags } from "../lib/places";
 
-const OUT = join(import.meta.dirname, "data", "places.baseline.json");
+const OUT = join(SCOUT_DATA, "places.baseline.json");
 
 async function main(): Promise<void> {
   const uri = process.env.MONGODB_URI?.trim();

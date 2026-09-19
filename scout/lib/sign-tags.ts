@@ -3,10 +3,8 @@
  * file, and the person signs by reviewing the diff and committing it.
  */
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { KINDS } from "./candidate";
-
-const PLACES_TS = join(import.meta.dirname, "..", "..", "lib", "places.ts");
+import { PLACES_TS } from "./paths";
 
 type Kind = (typeof KINDS)[number];
 

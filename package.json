@@ -10,7 +10,8 @@
     "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts",
     "scout": "tsx --env-file=.env.local scout/run.ts",
     "scout:locate": "tsx --env-file=.env.local scout/locate-places.ts",
-    "scout:promote": "tsx --env-file=.env.local scout/promote.ts"
+    "scout:promote": "tsx --env-file=.env.local scout/promote.ts",
+    "scout:ui": "next dev scout/ui -p 3100"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
