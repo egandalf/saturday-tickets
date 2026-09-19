@@ -6,15 +6,18 @@ import { embedQuery } from "./voyage";
 type GlobalMongo = {
   __ticketsMongo?: MongoClient;
   __ticketsMongoPromise?: Promise<MongoClient>;
+  __ticketsTravelIndex?: Promise<string>;
 };
 
 const g = globalThis as typeof globalThis & GlobalMongo;
 
 const SURFACES: Surface[] = ["PAVED", "PACKED GRAVEL"];
 const VECTOR_INDEX = "places_vector";
-const EMBED_MODEL = "voyage-3-lite";
-const FAMILY_QUERY =
-  "family Saturday from 41144 Greenup Kentucky, paved or packed gravel, back before dusk";
+const EMBED_MODEL = "voyage-3.5-lite";
+/** Origin-neutral: where the family starts is applied after retrieval, by routing. */
+const FAMILY_QUERY = "family Saturday day trip, paved or packed gravel, back before dusk";
+/** Every place at today's size. When places grow, prefilter by distance (2dsphere) and pass the ids to $vectorSearch as a filter. */
+const VECTOR_LIMIT = 200;
 
 function uri(): string | undefined {
   const value = process.env.MONGODB_URI?.trim();
@@ -167,16 +170,22 @@ function asPlace(doc: Document): Place | null {
     photo: doc.photo,
     photoAlt: typeof doc.photoAlt === "string" ? doc.photoAlt : doc.title,
     credit: typeof doc.credit === "string" ? doc.credit : undefined,
+    location: asLocation(doc.location),
   };
+}
+
+function asLocation(value: unknown): Place["location"] {
+  const coords = (value as { coordinates?: unknown } | undefined)?.coordinates;
+  if (!Array.isArray(coords) || typeof coords[0] !== "number" || typeof coords[1] !== "number") return undefined;
+  return { lat: coords[1], lng: coords[0] };
 }
 
 function mapped(docs: Document[]): Place[] {
   return docs.map(asPlace).filter((p): p is Place => Boolean(p));
 }
 
-async function findPlaces(coll: Collection<Document>, radiusMiles: number, db: string): Promise<Place[]> {
+async function findPlaces(coll: Collection<Document>, db: string): Promise<Place[]> {
   const filter = {
-    milesFromHome: { $lte: radiusMiles },
     photo: { $type: "string", $ne: "" },
     surface: { $in: SURFACES },
   };
@@ -199,7 +208,6 @@ async function findPlaces(coll: Collection<Document>, radiusMiles: number, db: s
 
 async function vectorPlaces(
   coll: Collection<Document>,
-  radiusMiles: number,
   queryText: string,
   database: Db,
 ): Promise<Place[] | null> {
@@ -220,9 +228,8 @@ async function vectorPlaces(
         index: VECTOR_INDEX,
         path: "embedding",
         queryVector,
-        numCandidates: 44,
-        limit: 22,
-        filter: { milesFromHome: { $lte: radiusMiles } },
+        numCandidates: VECTOR_LIMIT * 2,
+        limit: VECTOR_LIMIT,
       },
     },
     { $project: { embedding: 0, embeddingModel: 0, embeddingDims: 0 } },
@@ -230,7 +237,7 @@ async function vectorPlaces(
 
   log.json(
     "mongo.places.vector",
-    { index: VECTOR_INDEX, radius: radiusMiles, numCandidates: 44, limit: 22 },
+    { index: VECTOR_INDEX, numCandidates: VECTOR_LIMIT * 2, limit: VECTOR_LIMIT },
     { db: database.databaseName, coll: coll.collectionName },
   );
 
@@ -258,10 +265,8 @@ export type AtlasLoad = {
   via: "vector" | "find";
 };
 
-export async function loadPlacesFromAtlas(
-  radiusMiles: number,
-  queryText = FAMILY_QUERY,
-): Promise<AtlasLoad | null> {
+/** Every dealable place, ranked by the family embed. Distance from the origin is applied by the deal. */
+export async function loadPlacesFromAtlas(queryText = FAMILY_QUERY): Promise<AtlasLoad | null> {
   const connection = uri();
   if (!connection) return null;
 
@@ -271,7 +276,7 @@ export async function loadPlacesFromAtlas(
   const db = client.db(dbName(connection));
   const coll = db.collection("places");
 
-  const fromVector = await vectorPlaces(coll, radiusMiles, queryText, db);
+  const fromVector = await vectorPlaces(coll, queryText, db);
   if (fromVector && fromVector.length) {
     const notes = await db.collection("notes").estimatedDocumentCount();
     log.line("mongo.notes", { count: notes });
@@ -282,7 +287,7 @@ export async function loadPlacesFromAtlas(
     log.line("mongo.places.vector.empty", { fallback: "find" });
   }
 
-  const places = await findPlaces(coll, radiusMiles, db.databaseName);
+  const places = await findPlaces(coll, db.databaseName);
   const notes = await db.collection("notes").estimatedDocumentCount();
   log.line("mongo.notes", { count: notes });
   return { places, via: "find" };
@@ -326,5 +331,28 @@ export async function saveCheckpoint(threadId: string, state: Document): Promise
     { threadId },
     { $set: { ...state, threadId, updatedAt: new Date() } },
     { upsert: true },
+  );
+}
+
+export type TravelCacheDoc = { _id: string; miles: number; minutes: number; at: Date };
+
+const TRAVEL_TTL_SECONDS = 30 * 24 * 3600;
+
+/** Drive times already routed from an origin (key "lat,lng:placeId"); expire after 30 days. */
+export async function readTravelCache(ids: string[]): Promise<TravelCacheDoc[]> {
+  const db = await database();
+  if (!db || !ids.length) return [];
+  const coll = db.collection<TravelCacheDoc>("travel_cache");
+  if (!g.__ticketsTravelIndex) {
+    g.__ticketsTravelIndex = coll.createIndex({ at: 1 }, { expireAfterSeconds: TRAVEL_TTL_SECONDS }).catch(() => "");
+  }
+  return coll.find({ _id: { $in: ids } }).toArray();
+}
+
+export async function writeTravelCache(docs: TravelCacheDoc[]): Promise<void> {
+  const db = await database();
+  if (!db || !docs.length) return;
+  await db.collection<TravelCacheDoc>("travel_cache").bulkWrite(
+    docs.map((d) => ({ replaceOne: { filter: { _id: d._id }, replacement: d, upsert: true } })),
   );
 }

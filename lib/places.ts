@@ -2,7 +2,12 @@ export type Surface = "PAVED" | "PACKED GRAVEL";
 export type Kind = "lake" | "woods" | "town" | "history";
 
 /** Signed town pins: murals and river-town streets. Ritter is Woods. */
-export const SIGNED_TOWN_IDS = ["ashland-floodwall", "portsmouth-murals"] as const;
+export const SIGNED_TOWN_IDS = [
+  "ashland-floodwall",
+  "portsmouth-murals",
+  "old-fort-harrod",
+  "constitution-square",
+] as const;
 
 /** Signed water pins. Greenbo stays on Lake (furnace crop is fine). Twin Knobs is Woods. Jenny Wiley is Dewey Lake. */
 export const SIGNED_LAKE_IDS = [
@@ -31,7 +36,15 @@ export const SIGNED_WOODS_IDS = [
 ] as const;
 
 /** Signed history pins. Do not relabel a covered bridge as a lake. */
-export const SIGNED_HISTORY_IDS = ["bennetts-mill", "oldtown-bridge", "serpent-mound"] as const;
+export const SIGNED_HISTORY_IDS = [
+  "bennetts-mill",
+  "oldtown-bridge",
+  "serpent-mound",
+  "old-fort-harrod",
+  "perryville-battlefield",
+  "constitution-square",
+  "fort-boonesborough",
+] as const;
 
 const SIGNED_TAGS: Record<string, Kind[]> = {};
 
@@ -66,6 +79,8 @@ export type Place = {
   photo: string;
   photoAlt: string;
   credit?: string;
+  /** Where the family parks. Deals from anywhere but home need it to route the drive. */
+  location?: { lat: number; lng: number };
 };
 
 /** Home is 41144 Greenup, KY. Distances from published park listings, not a POI dump. */

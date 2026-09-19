@@ -1,6 +1,5 @@
-/** 41144 Greenup, KY. Leave-by follows sunset that Saturday, not a fixed 7:30. */
-const LAT = 38.578;
-const LNG = -82.83;
+/** Leave-by follows sunset that Saturday where the deal starts, not a fixed 7:30. Home is 41144 Greenup, KY. */
+export const HOME_COORDS = { lat: 38.578, lng: -82.83 };
 const TZ = "America/New_York";
 
 const PI = Math.PI;
@@ -72,9 +71,9 @@ function sunsetJulian(ms: number, lat: number, lng: number): number {
   return solarTransitJ(a, M, L);
 }
 
-function nyParts(date: Date): { year: number; month: number; day: number; weekday: string } {
+function localParts(date: Date, tz: string): { year: number; month: number; day: number; weekday: string } {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -94,9 +93,9 @@ function addDays(year: number, month: number, day: number, extra: number): { yea
   return { year: utc.getUTCFullYear(), month: utc.getUTCMonth() + 1, day: utc.getUTCDate() };
 }
 
-/** Coming Saturday in Eastern time. Thursday night deals this Saturday. */
-export function upcomingSaturday(from = new Date()): { year: number; month: number; day: number; date: string } {
-  const ny = nyParts(from);
+/** Coming Saturday in the origin's time zone. Thursday night deals this Saturday. */
+export function upcomingSaturday(from = new Date(), tz = TZ): { year: number; month: number; day: number; date: string } {
+  const ny = localParts(from, tz);
   const order = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const idx = order.indexOf(ny.weekday);
   const ahead = idx === 6 ? 0 : 6 - idx;
@@ -113,13 +112,14 @@ function clockFromMinutes(total: number): string {
   return minute === 0 ? `${hour} ${suffix}` : `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
-export function saturdaySunset(from = new Date()): SaturdaySunset {
-  const sat = upcomingSaturday(from);
+/** Clock is in `tz` (the origin's zone); `at` and `tz` default to home. */
+export function saturdaySunset(from = new Date(), at = HOME_COORDS, tz = TZ): SaturdaySunset {
+  const sat = upcomingSaturday(from, tz);
   const noonUtc = Date.UTC(sat.year, sat.month - 1, sat.day, 12, 0, 0);
-  const setMs = fromJulian(sunsetJulian(noonUtc, LAT, LNG));
+  const setMs = fromJulian(sunsetJulian(noonUtc, at.lat, at.lng));
   const set = new Date(setMs);
   const clock = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
+    timeZone: tz,
     hour: "numeric",
     minute: "2-digit",
     hour12: false,

@@ -4,18 +4,32 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "scout:export": "tsx --env-file=.env.local scout/export-places.ts",
+    "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts",
+    "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts",
+    "scout:ui": "next dev scout/ui -p 3100",
+    "agent": "tsx --env-file=.env.local scout/framework/cli.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
+    "@langchain/core": "^1.2.11",
+    "@langchain/langgraph": "^1.4.16",
+    "@langchain/langgraph-checkpoint-mongodb": "^1.4.1",
+    "@vercel/blob": "^2.8.0",
     "mongodb": "^6",
     "next": "^15",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "tz-lookup": "^6.1.25",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/tz-lookup": "^6.1.2",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

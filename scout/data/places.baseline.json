@@ -1,0 +1,453 @@
+{
+  "exportedAt": "2026-09-19T16:42:00.743Z",
+  "db": "saturday",
+  "count": 22,
+  "places": [
+    {
+      "id": "jesse-stuart",
+      "clayWhenWet": false,
+      "credit": "James Stout",
+      "duskOk": true,
+      "milesFromHome": 8,
+      "minutesOut": 12,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/jesse-stuart-trail.jpg",
+      "photoAlt": "Trailhead kiosk at Jesse Stuart State Nature Preserve, W-Hollow",
+      "surface": "PAVED",
+      "title": "Jesse Stuart SNP",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "bennetts-mill",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 10,
+      "minutesOut": 15,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/bennetts-mill.jpg",
+      "photoAlt": "Bennett's Mill Covered Bridge, paved approach",
+      "surface": "PAVED",
+      "title": "Bennett's Mill Covered Bridge",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Jet Lowe, HAER KY-49-1 (public domain)",
+      "signedTags": [
+        "history"
+      ]
+    },
+    {
+      "id": "greenbo",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 10,
+      "minutesOut": 15,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/greenbo.jpg",
+      "photoAlt": "Buffalo Iron Furnace at Greenbo Lake State Resort Park",
+      "surface": "PAVED",
+      "title": "Greenbo Lake",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "FloNight / Sydney Poore (CC BY-SA 3.0)",
+      "signedTags": [
+        "lake",
+        "woods"
+      ]
+    },
+    {
+      "id": "ashland-floodwall",
+      "clayWhenWet": false,
+      "credit": "Nyttend (public domain)",
+      "duskOk": true,
+      "milesFromHome": 12,
+      "minutesOut": 18,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/ashland-floodwall.jpg",
+      "photoAlt": "Ashland Kentucky concrete floodwall",
+      "surface": "PAVED",
+      "title": "Ashland floodwall",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "signedTags": [
+        "town"
+      ]
+    },
+    {
+      "id": "oldtown-bridge",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 12,
+      "minutesOut": 18,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/oldtown-bridge.jpg",
+      "photoAlt": "Oldtown Covered Bridge spanning the Little Sandy",
+      "surface": "PAVED",
+      "title": "Oldtown Covered Bridge",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Jerrye & Roy Klotz MD (CC BY-SA 3.0)",
+      "signedTags": [
+        "history"
+      ]
+    },
+    {
+      "id": "carter-caves",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 20,
+      "minutesOut": 30,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/carter-caves.jpg",
+      "photoAlt": "Paved park roadway at Carter Caves State Resort Park",
+      "surface": "PAVED",
+      "title": "Carter Caves",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "C. Bedford Crenshaw (attribution)",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "grayson-lake",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 30,
+      "minutesOut": 45,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/grayson-lake.jpg",
+      "photoAlt": "Grayson Lake State Park",
+      "surface": "PAVED",
+      "title": "Grayson Lake",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "U.S. Army Corps of Engineers (public domain)",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "ritter-park",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 30,
+      "minutesOut": 45,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/ritter-park.jpg",
+      "photoAlt": "Stone footbridges at Ritter Park",
+      "surface": "PAVED",
+      "title": "Huntington Ritter Park",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Wvfunnyman (CC BY-SA 3.0)",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "vesuvius-beach",
+      "clayWhenWet": false,
+      "credit": "USFS 1960 (public domain)",
+      "duskOk": true,
+      "milesFromHome": 30,
+      "minutesOut": 45,
+      "note": "dam/beach only, not the iron furnace",
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/vesuvius-beach.jpg",
+      "photoAlt": "Bathing beach at Lake Vesuvius, June 1960",
+      "surface": "PAVED",
+      "title": "Lake Vesuvius dam/beach",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "shawnee-packed",
+      "clayWhenWet": false,
+      "credit": "Analogue Kid (CC BY 3.0)",
+      "duskOk": true,
+      "milesFromHome": 31,
+      "minutesOut": 46,
+      "note": "Picnic Point packed roads, not wet spurs",
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/shawnee-packed.jpg",
+      "photoAlt": "Picnic Point overlook, Shawnee State Forest",
+      "surface": "PACKED GRAVEL",
+      "title": "Shawnee packed forest roads",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "portsmouth-murals",
+      "clayWhenWet": false,
+      "credit": "Chris Light (CC BY-SA 4.0)",
+      "duskOk": true,
+      "milesFromHome": 35,
+      "minutesOut": 52,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/portsmouth-murals.jpg",
+      "photoAlt": "Portsmouth floodwall mural on Boneyfiddle Walkway",
+      "surface": "PAVED",
+      "title": "Portsmouth murals",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "signedTags": [
+        "town"
+      ]
+    },
+    {
+      "id": "shawnee-lodge",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 35,
+      "minutesOut": 52,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/shawnee-lodge.jpg",
+      "photoAlt": "Shawnee State Park lodge porch",
+      "surface": "PAVED",
+      "title": "Shawnee State Park lodge",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Rdikeman (public domain)",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "beech-fork",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 45,
+      "minutesOut": 68,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/beech-fork.jpg",
+      "photoAlt": "Beech Fork State Park lake",
+      "surface": "PAVED",
+      "title": "Beech Fork SP",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Youngamerican, touched up by WVhybrid (CC BY-SA 3.0)",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "east-lynn",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 50,
+      "minutesOut": 75,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/east-lynn.jpg",
+      "photoAlt": "East Lynn Lake from the dam",
+      "surface": "PAVED",
+      "title": "East Lynn Lake ramp",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Brian M. Powell (CC BY-SA 3.0)",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "yatesville",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 55,
+      "minutesOut": 82,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/yatesville.jpg",
+      "photoAlt": "Yatesville Lake State Park",
+      "surface": "PAVED",
+      "title": "Yatesville Lake SP",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "U.S. Army Corps of Engineers, Huntington District (public domain)",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "twin-knobs",
+      "clayWhenWet": false,
+      "credit": "USDA Forest Service / Daniel Boone NF",
+      "duskOk": true,
+      "milesFromHome": 70,
+      "minutesOut": 105,
+      "note": "developed pad, not lake shore",
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/twin-knobs.jpg",
+      "photoAlt": "Twin Knobs Campground developed pad",
+      "surface": "PACKED GRAVEL",
+      "title": "Cave Run Twin Knobs",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "serpent-mound",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 80,
+      "minutesOut": 120,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/serpent-mound.jpg",
+      "photoAlt": "Serpent Mound, Peebles Ohio",
+      "surface": "PAVED",
+      "title": "Serpent Mound",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Stephanie A. Terry (CC BY-SA 4.0)",
+      "signedTags": [
+        "history"
+      ]
+    },
+    {
+      "id": "kanawha-entry",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 90,
+      "minutesOut": 135,
+      "note": "paved main-road pin",
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/kanawha-entry.jpg",
+      "photoAlt": "Kanawha State Forest entry sign",
+      "surface": "PAVED",
+      "title": "Kanawha State Forest main road",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Andrew Springer (CC BY-SA 4.0)",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "paintsville-lake",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 90,
+      "minutesOut": 135,
+      "note": "SP only, not WMA gravel",
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/paintsville-lake.jpg",
+      "photoAlt": "Paintsville Lake State Park",
+      "surface": "PAVED",
+      "title": "Paintsville Lake SP",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "J654567 (CC BY-SA 3.0)",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "jenny-wiley",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 100,
+      "minutesOut": 150,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/jenny-wiley.jpg",
+      "photoAlt": "Dewey Lake at Jenny Wiley State Resort Park",
+      "surface": "PAVED",
+      "title": "Jenny Wiley SRP",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "U.S. Army Corps of Engineers (public domain)",
+      "signedTags": [
+        "lake"
+      ]
+    },
+    {
+      "id": "ash-cave",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 110,
+      "minutesOut": 165,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/ash-cave.jpg",
+      "photoAlt": "Ash Cave at Hocking Hills",
+      "surface": "PAVED",
+      "title": "Hocking Hills Ash Cave",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Ramseybuckeye (public domain)",
+      "signedTags": [
+        "woods"
+      ]
+    },
+    {
+      "id": "natural-bridge",
+      "clayWhenWet": false,
+      "duskOk": true,
+      "milesFromHome": 120,
+      "minutesOut": 180,
+      "onSiteMinutes": 150,
+      "photo": "https://mzzksomkbyrlajlw.public.blob.vercel-storage.com/photos/natural-bridge.jpg",
+      "photoAlt": "Natural Bridge State Resort Park",
+      "surface": "PAVED",
+      "title": "Natural Bridge SRP",
+      "turnaround": true,
+      "waterCrossing": false,
+      "embeddingDims": 512,
+      "embeddingModel": "voyage-3-lite",
+      "credit": "Ken Thomas (public domain)",
+      "signedTags": [
+        "woods"
+      ]
+    }
+  ]
+}

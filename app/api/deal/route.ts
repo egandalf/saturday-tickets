@@ -1,4 +1,5 @@
 import { dealSaturday, parseMood, type DealResult } from "@/lib/deal";
+import { formatOrigin, isHome, parseOrigin, parseRadius } from "@/lib/geo";
 import { log } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -18,6 +19,12 @@ function asSlot(value: unknown): number | undefined {
   return undefined;
 }
 
+function asAvoidWater(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === "avoid" || value === "true" || value === "1") return true;
+  return undefined;
+}
+
 function dealPayload(dealt: DealResult) {
   return {
     tickets: dealt.tickets,
@@ -25,16 +32,22 @@ function dealPayload(dealt: DealResult) {
     calls: dealt.calls,
     threadId: dealt.threadId,
     nodes: dealt.nodes,
+    origin: { ...dealt.origin, param: formatOrigin(dealt.origin), home: isHome(dealt.origin) },
+    radiusMiles: dealt.radiusMiles,
   };
 }
 
 const FAIL_RETRIEVE = { source: "seed", via: null, operator: "seed", atlas: null, mood: null } as const;
 
 export async function GET(request: Request) {
-  const mood = parseMood(new URL(request.url).searchParams.get("mood"));
-  log.line("http.GET", { path: "/api/deal", mood: mood ?? "none" });
+  const params = new URL(request.url).searchParams;
+  const mood = parseMood(params.get("mood"));
+  const avoidWater = asAvoidWater(params.get("water"));
+  const origin = parseOrigin(params.get("from")) ?? undefined;
+  const radiusMiles = params.get("radius") ? parseRadius(params.get("radius")) : undefined;
+  log.line("http.GET", { path: "/api/deal", mood: mood ?? "none", avoidWater: Boolean(avoidWater), from: origin?.label ?? "home", radius: radiusMiles ?? null });
   try {
-    const dealt = await dealSaturday(mood);
+    const dealt = await dealSaturday(mood, undefined, { avoidWater, origin, radiusMiles });
     log.line("http.GET.ok", {
       path: "/api/deal",
       count: dealt.tickets.length,
@@ -85,15 +98,19 @@ export async function POST(request: Request) {
   const threadId = asBodyString(rec.threadId);
   const note = asBodyString(rec.note);
   const slot = asSlot(rec.slot);
+  const avoidWater = asAvoidWater(rec.avoidWater);
+  const origin = parseOrigin(asBodyString(rec.from)) ?? undefined;
+  const radiusMiles = rec.radius !== undefined ? parseRadius(rec.radius) : undefined;
   log.line("http.POST.body", {
     path: "/api/deal",
     mood: mood ?? "none",
     threadId: threadId ?? null,
     slot: slot ?? null,
+    avoidWater: avoidWater ?? null,
     note: note ? note.trim() : null,
   });
   try {
-    const dealt = await dealSaturday(mood, { threadId, note, slot });
+    const dealt = await dealSaturday(mood, { threadId, note, slot }, { avoidWater, origin, radiusMiles });
     log.line("http.POST.ok", {
       path: "/api/deal",
       count: dealt.tickets.length,

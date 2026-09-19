@@ -1,6 +1,8 @@
 import { log } from "./log";
 
-const MODEL = "voyage-3-lite";
+/** 512 dims to match the places_vector index. Places and queries must share a model. */
+const MODEL = "voyage-3.5-lite";
+const DIMS = 512;
 
 type GlobalVoyage = {
   __ticketsQueryEmbeds?: Map<string, number[]>;
@@ -21,7 +23,7 @@ async function requestEmbed(key: string, text: string): Promise<number[] | null>
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ input: [text], model: MODEL, input_type: "query" }),
+    body: JSON.stringify({ input: [text], model: MODEL, input_type: "query", output_dimension: DIMS }),
   });
   const ms = Date.now() - started;
   if (!res.ok) {
