@@ -99,6 +99,56 @@
     },
     "at": "2026-09-19T18:49:38.970Z"
   },
+  "constitution-square": {
+    "id": "constitution-square",
+    "title": "Constitution Square Historic Site",
+    "lat": 37.6448,
+    "lng": -84.7728,
+    "what": "Parking lot at Constitution Square Historic Site / Danville-Boyle County Visitors Center, corner of Walnut & 2nd St, Danville KY (105 E Walnut St) - the small lots serving the historic square where the Governor's Circle memorial (KY state seal) is located.",
+    "source": "https://mcdowellhouse.com/constitution-square and https://danvillekentucky.com/listing/constitution-square-historic-site-2; mapped parking lots confirmed 53m and 66m from this point via parking_near",
+    "route": {
+      "miles": 169.1,
+      "minutes": 189,
+      "snapMiles": 0.01,
+      "approach": {
+        "paved": 0.41,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 4.59
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T20:39:25.251Z"
+  },
+  "east-lynn": {
+    "id": "east-lynn",
+    "title": "East Lynn Lake ramp",
+    "lat": 38.145,
+    "lng": -82.3839,
+    "what": "East Lynn Lake dam-area day-use spot (Overlook/Lakeside Recreation Area boat ramp near the dam, matching the \"view from the dam\" photo)",
+    "source": "Multiple corroborating sources cluster this address (683/761 Overlook Trail Rd, East Lynn WV): Wikipedia infobox coords for East Lynn Lake/dam (38.145,-82.38389), campflare.com East Lynn Lake Shelters page (same coords, notes \"Shelters 1 and 2 feature scenic overlooks at the dam\" and \"Shelter 4 sits directly on the lake with convenient boat ramp access\"), and USACE/lakebrief.com describing \"Lakeside Recreation Area Boat Ramp ... near-dam day-use launch\"",
+    "route": {
+      "miles": 52.3,
+      "minutes": 80,
+      "snapMiles": 0.06,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T20:32:11.710Z"
+  },
   "grayson-lake": {
     "id": "grayson-lake",
     "title": "Grayson Lake",
@@ -174,6 +224,31 @@
     },
     "at": "2026-09-19T18:47:21.279Z"
   },
+  "kanawha-entry": {
+    "id": "kanawha-entry",
+    "title": "Kanawha State Forest main road",
+    "lat": 38.280989,
+    "lng": -81.641739,
+    "what": "Parking area at the main Davis Creek Road entrance to Kanawha State Forest (near entry sign)",
+    "source": "https://en.wikipedia.org/wiki/Kanawha_State_Forest (entrance coordinates) + mapped parking lot 38m from that point",
+    "route": {
+      "miles": 88.6,
+      "minutes": 108,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 1.6,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 3.4
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T20:16:28.317Z"
+  },
   "oldtown-bridge": {
     "id": "oldtown-bridge",
     "title": "Oldtown Covered Bridge",
@@ -223,6 +298,31 @@
       "ferries": []
     },
     "at": "2026-09-19T18:43:59.041Z"
+  },
+  "perryville-battlefield": {
+    "id": "perryville-battlefield",
+    "title": "Perryville Battlefield State Historic Site",
+    "lat": 37.676,
+    "lng": -84.967,
+    "what": "Perryville Battlefield State Historic Site - main park entrance/visitor center parking lot (1825 Battlefield Road)",
+    "source": "https://www.perryvillebattlefield.org/html/directions_and_hours.html",
+    "route": {
+      "miles": 180.9,
+      "minutes": 205,
+      "snapMiles": 0.01,
+      "approach": {
+        "paved": 2.83,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 2.17
+      },
+      "suggestedSurface": "PAVED",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T20:32:52.737Z"
   },
   "portsmouth-murals": {
     "id": "portsmouth-murals",
@@ -324,6 +424,31 @@
     },
     "at": "2026-09-19T18:46:42.829Z"
   },
+  "twin-knobs": {
+    "id": "twin-knobs",
+    "title": "Cave Run Twin Knobs",
+    "lat": 38.09104619,
+    "lng": -83.50740413,
+    "what": "Twin Knobs Campground entrance/developed campsite pad area at Cave Run Lake (Daniel Boone National Forest) — the family parks at a developed campsite pad, not the lake shore/beach",
+    "source": "https://www.fs.usda.gov/r08/danielboone/recreation/twin-knobs-group-campground",
+    "route": {
+      "miles": 85.7,
+      "minutes": 100,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 1.01,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 3.99
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T20:40:39.413Z"
+  },
   "vesuvius-beach": {
     "id": "vesuvius-beach",
     "title": "Lake Vesuvius dam/beach",
@@ -348,5 +473,30 @@
       "ferries": []
     },
     "at": "2026-09-19T18:51:10.683Z"
+  },
+  "yatesville": {
+    "id": "yatesville",
+    "title": "Yatesville Lake SP",
+    "lat": 38.118097,
+    "lng": -82.693712,
+    "what": "Parking lot at Yatesville Lake State Park Marina (near beach, boat launch, and marina store)",
+    "source": "https://marinas.com/view/marina/d9c123l_Yatesville_Lake_State_Park_Marina_Louisa_KY_United_States confirms marina coordinates (38.1200, -82.6953); OSM-mapped parking lot 257m away used as pinpoint via parking_near tool",
+    "route": {
+      "miles": 48.9,
+      "minutes": 60,
+      "snapMiles": 0,
+      "approach": {
+        "paved": 0,
+        "gravel": 0,
+        "rough": 0,
+        "unknown": 5
+      },
+      "suggestedSurface": "UNKNOWN",
+      "rough": [],
+      "tracks": [],
+      "fords": [],
+      "ferries": []
+    },
+    "at": "2026-09-19T20:41:19.465Z"
   }
 }
