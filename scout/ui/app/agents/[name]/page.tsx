@@ -7,7 +7,7 @@ import { runAgentAction } from "../../actions";
 import { AgentEditor } from "../../../components/AgentEditor";
 import { definitionText, lineDiff } from "../../../lib/diff";
 import { getDb, plain } from "../../../lib/server";
-import { ago } from "../../../lib/types";
+import { ago, FIELD_PREFIX } from "../../../lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -43,9 +43,9 @@ export default async function AgentPage({ params, searchParams }: { params: Prom
               {f.label}
               {f.required ? " *" : ""}
               {f.type === "text" || f.type === "json" ? (
-                <textarea name={f.name} rows={f.type === "json" ? 6 : 3} className={f.type === "json" ? "mono small" : ""} required={f.required} />
+                <textarea name={`${FIELD_PREFIX}${f.name}`} rows={f.type === "json" ? 6 : 3} className={f.type === "json" ? "mono small" : ""} required={f.required} />
               ) : (
-                <input name={f.name} type={f.type === "number" ? "number" : "text"} defaultValue={f.default === undefined ? "" : String(f.default)} required={f.required} />
+                <input name={`${FIELD_PREFIX}${f.name}`} type={f.type === "number" ? "number" : "text"} defaultValue={f.default === undefined ? "" : String(f.default)} required={f.required} />
               )}
               {f.help ? <span className="small muted">{f.help}</span> : null}
             </label>

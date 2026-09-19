@@ -8,6 +8,7 @@ import { cancelExecution, continueExecution, resumeExecution, startExecution } f
 import type { AgentDefinition, Decision } from "../../framework/types";
 import { applyTravel } from "../../lib/travel";
 import { getDb, getFramework } from "../lib/server";
+import { FIELD_PREFIX } from "../lib/types";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -18,7 +19,10 @@ function failure(err: unknown): { ok: false; error: string } {
 /** Start an agent from its generated run form; field values arrive as strings. */
 export async function runAgentAction(agent: string, form: FormData): Promise<void> {
   const input: Record<string, unknown> = {};
-  for (const [key, value] of form.entries()) if (typeof value === "string" && value.trim()) input[key] = value.trim();
+  for (const [key, value] of form.entries()) {
+    if (!key.startsWith(FIELD_PREFIX) || typeof value !== "string" || !value.trim()) continue;
+    input[key.slice(FIELD_PREFIX.length)] = value.trim();
+  }
   const id = await startExecution(await getFramework(), agent, input);
   redirect(`/executions/${id}`);
 }

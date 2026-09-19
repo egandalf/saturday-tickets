@@ -28,6 +28,12 @@ export type ToolInfo = {
 
 export const KIND_LIST = ["lake", "woods", "town", "history"] as const;
 
+/**
+ * Run-form field names get this prefix. A control named like a form property ("focus", "action",
+ * "submit", "reset", "name") would shadow it: React calls form.focus() and gets the input instead.
+ */
+export const FIELD_PREFIX = "in:";
+
 export function clock(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
