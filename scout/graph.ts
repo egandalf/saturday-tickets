@@ -8,7 +8,8 @@ import { Annotation, END, interrupt, START, StateGraph, type LangGraphRunnableCo
 import type { Db } from "mongodb";
 import { z } from "zod";
 import { signedTags } from "../lib/places";
-import { Candidate, KINDS, normalizeTitle, type CandidateDoc, type Decision } from "./lib/candidate";
+import { Candidate, KINDS, normalizeTitle, type CandidateDoc, type Decision, type Scouted } from "./lib/candidate";
+import { describe, enrich, isError } from "./lib/enrich";
 import { APP_HOME, straightMiles, type Run } from "./lib/origin";
 import { readPage, webSearch } from "./lib/tavily";
 
@@ -17,14 +18,14 @@ const MAX_ITERATIONS = 40;
 
 type Known = { id: string; title: string; source: "places" | "candidates"; status?: string };
 
-export type ReviewRequest = { index: number; total: number; candidate: Candidate; run: Run };
+export type ReviewRequest = { index: number; total: number; candidate: Scouted; run: Run };
 
 export const ScoutState = Annotation.Root({
   run: Annotation<Run>,
   focus: Annotation<string | null>,
   count: Annotation<number>,
   known: Annotation<Known[]>,
-  candidates: Annotation<Candidate[]>,
+  candidates: Annotation<Scouted[]>,
   reviewAt: Annotation<number>,
   decisions: Annotation<Decision[]>({ reducer: (a, b) => a.concat(b), default: () => [] }),
 });
@@ -49,6 +50,7 @@ How to work:
 - Every fact comes from a page you read. When the pages don't say, answer "unknown"; never guess to fill a field.
 - Copy coordinates from a source page (Wikipedia, the park's own page, a government listing) and name it in locationSource.
 - Submit each place with submit_candidate. It tells you when a place is already known or outside the search radius; move on to another place when it does.
+- When it records a place, it also routes the drive from home and checks the approach, parking, and photos from open data, and returns flags (a ford, rough surface, coordinates far from a road). Research a flag when the pages can settle it, then resubmit the same id with what you learned: waterCrossing and its notes, turnaround, clayWhenWet, a parking-lot coordinate, or a concern. Resubmitting replaces the earlier entry.
 - When you have submitted the number asked for, stop and reply with one line summarizing what you found.`;
 
 function brief(state: State): string {
@@ -85,7 +87,7 @@ function gapNode(db: Db) {
 
 function discoverNode(client: Anthropic) {
   return async (state: State): Promise<Partial<State>> => {
-    const found: Candidate[] = [];
+    const found: Scouted[] = [];
     const ids = new Set(state.known.map((k) => k.id));
     const titles = new Map(state.known.map((k) => [normalizeTitle(k.title), k.id]));
 
@@ -107,8 +109,9 @@ function discoverNode(client: Anthropic) {
         description: "Record one place for the family to review. Returns whether it was recorded.",
         inputSchema: Candidate,
         run: async (c) => {
-          if (found.length >= state.count) return `Already have ${state.count}. Stop and summarize.`;
-          const dupe = ids.has(c.id) ? c.id : titles.get(normalizeTitle(c.title));
+          const at = found.findIndex((f) => f.id === c.id);
+          if (at < 0 && found.length >= state.count) return `Already have ${state.count}. Stop and summarize.`;
+          const dupe = at >= 0 ? undefined : ids.has(c.id) ? c.id : titles.get(normalizeTitle(c.title));
           if (dupe) return `Not recorded: already known as ${dupe}. Find a different place.`;
           const miles = straightMiles(state.run.origin, c.location);
           if (miles > state.run.radiusMiles) {
@@ -117,10 +120,25 @@ function discoverNode(client: Anthropic) {
           if (c.turnaround === "no" || c.clayWhenWet === "yes") {
             return `Not recorded: ${c.turnaround === "no" ? "no turnaround" : "clay when wet"}. Find a different place.`;
           }
-          found.push(c);
+          const scouted: Scouted = { ...c, enrichment: await enrich(c.location) };
+          if (at >= 0) found[at] = scouted;
+          else found.push(scouted);
           ids.add(c.id);
           titles.set(normalizeTitle(c.title), c.id);
-          return `Recorded ${c.id} (${found.length} of ${state.count}).`;
+
+          const { summary, flags } = describe(scouted.enrichment);
+          const route = scouted.enrichment.route;
+          if (!isError(route) && c.surface !== "UNKNOWN" && route.suggestedSurface !== "UNKNOWN" && route.suggestedSurface !== c.surface) {
+            flags.push(`you said ${c.surface}; the mapped approach reads ${route.suggestedSurface}`);
+          }
+          if (!isError(route) && route.fords.length && c.waterCrossing === "none") {
+            flags.push("you said no water crossing, but the route crosses a ford");
+          }
+          const verb = at >= 0 ? "Updated" : "Recorded";
+          return [
+            `${verb} ${c.id} (${found.length} of ${state.count}). ${summary}`,
+            flags.length ? `Flags:\n- ${flags.join("\n- ")}` : "No flags.",
+          ].join("\n");
         },
       }),
     ];
@@ -172,9 +190,19 @@ function stageNode(db: Db) {
     const writes = state.decisions.flatMap((d) => {
       const c = byId.get(d.id);
       if (!c || d.decision === "skip") return [];
+      const photos = isError(c.enrichment.photos) ? [] : c.enrichment.photos;
       const doc: CandidateDoc =
         d.decision === "accept"
-          ? { ...c, status: "accepted", tags: d.tags, reviewNote: d.note, scoutedFrom: state.run, threadId, reviewedAt: now }
+          ? {
+              ...c,
+              status: "accepted",
+              tags: d.tags,
+              photo: d.photo === null ? null : (photos[d.photo] ?? null),
+              reviewNote: d.note,
+              scoutedFrom: state.run,
+              threadId,
+              reviewedAt: now,
+            }
           : { ...c, status: "rejected", rejectReason: d.reason, scoutedFrom: state.run, threadId, reviewedAt: now };
       return [{ updateOne: { filter: { id: c.id }, update: { $set: doc }, upsert: true } }];
     });

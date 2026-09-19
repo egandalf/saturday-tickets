@@ -50,6 +50,8 @@ npm run scout:export                                # snapshot places to scout/d
 npm run scout:reembed [-- --write]                  # re-embed every place on the current model
 ```
 
-Graph: `gap` (thinnest kind, known places) → `discover` (web search, read page, `submit_candidate`) → `review` (one interrupt per candidate) → `stage`. Decisions land in Atlas `candidates`; rejected ones stay so later runs skip them. Run state lives in `scout_checkpoints` and `scout_checkpoint_writes`, apart from the app's `checkpoints`.
+Graph: `gap` (thinnest kind, known places) → `discover` (web search, read page, `submit_candidate`) → `review` (one interrupt per candidate) → `stage`.
+
+Each submitted candidate is enriched from open data before review, and the agent sees the flags so it can research and resubmit: the drive from 41144 and the last five miles of road surface, fords, ferries, and tracks (OpenRouteService on OpenStreetMap, `ORS_API_KEY`), with a ford-avoiding route for the bypass time; mapped parking and turning circles within 400 m (Overpass); and openly licensed photos within 1.5 km with author and license for `credit` (Wikimedia Commons). Unmapped is reported as unknown, not as absent. Decisions land in Atlas `candidates`; rejected ones stay so later runs skip them. Run state lives in `scout_checkpoints` and `scout_checkpoint_writes`, apart from the app's `checkpoints`.
 
 The origin and radius bound where a run looks. `milesFromHome` and `minutesOut` are always from 41144, so any accepted place can deal when it is in reach before dusk.

@@ -8,89 +8,16 @@
  * Run state lives in Atlas scout_checkpoints, so quitting mid-review loses nothing.
  */
 import { randomUUID } from "node:crypto";
-import { createInterface } from "node:readline";
 import { Command } from "@langchain/langgraph";
 import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
 import { MongoClient } from "mongodb";
 import { dbFromUri } from "../lib/log";
 import { buildGraph, MODEL, type ReviewRequest } from "./graph";
-import { KINDS, type Decision } from "./lib/candidate";
-import { APP_HOME, DEFAULT_RUN, parseOrigin, parseRadius, straightMiles, type Run } from "./lib/origin";
-
-type Kind = (typeof KINDS)[number];
+import { ask, prompter } from "./review-cli";
+import { DEFAULT_RUN, parseOrigin, parseRadius, type Run } from "./lib/origin";
 
 function value(argv: string[], name: string): string | undefined {
   return argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
-}
-
-/**
- * Answers come from a buffered line iterator opened at the first question, so nothing typed
- * or piped during discovery is dropped.
- */
-function prompter() {
-  let lines: AsyncIterator<string> | undefined;
-  let close = () => {};
-  return {
-    async question(text: string): Promise<string> {
-      if (!lines) {
-        const rl = createInterface({ input: process.stdin, terminal: false });
-        lines = rl[Symbol.asyncIterator]();
-        close = () => rl.close();
-      }
-      process.stdout.write(text);
-      const next = await lines.next();
-      if (next.done) throw new Error("input closed before an answer");
-      if (!process.stdin.isTTY) process.stdout.write(`${next.value}\n`);
-      return next.value;
-    },
-    close: () => close(),
-  };
-}
-
-type Prompter = ReturnType<typeof prompter>;
-
-function printCard({ index, total, candidate: c, run }: ReviewRequest): void {
-  const fromHome = straightMiles(APP_HOME, c.location).toFixed(0);
-  const fromOrigin = straightMiles(run.origin, c.location).toFixed(0);
-  const lines = [
-    ``,
-    `── ${index + 1} of ${total} ── ${c.title}  (${c.id})`,
-    `   ${c.summary}`,
-    `   kinds: ${c.kinds.join(", ")}   on site: ${c.onSiteMinutes} min`,
-    `   at ${c.location.lat}, ${c.location.lng} · ${fromHome} mi straight-line from home${run.origin.label === APP_HOME.label ? "" : `, ${fromOrigin} from ${run.origin.label}`}`,
-    `   coords from: ${c.locationSource}`,
-    c.address ? `   address: ${c.address}` : null,
-    `   surface: ${c.surface}   turnaround: ${c.turnaround}   clay when wet: ${c.clayWhenWet}   water crossing: ${c.waterCrossing}`,
-    c.waterCrossingNotes ? `   crossing: ${c.waterCrossingNotes}` : null,
-    c.seasonNote ? `   season: ${c.seasonNote}` : null,
-    ...c.concerns.map((x) => `   ⚠ ${x}`),
-    ...c.sources.map((s) => `   · ${s}`),
-  ];
-  console.log(lines.filter((l) => l !== null).join("\n"));
-}
-
-async function ask(rl: Prompter, request: ReviewRequest): Promise<Decision | "quit"> {
-  printCard(request);
-  const c = request.candidate;
-  for (;;) {
-    const answer = (await rl.question("   [a]ccept  [r]eject  [s]kip  [q]uit for now › ")).trim().toLowerCase();
-    if (answer === "q") return "quit";
-    if (answer === "s") return { id: c.id, decision: "skip" };
-    if (answer === "r") {
-      const reason = (await rl.question("   reason › ")).trim() || "not a fit";
-      return { id: c.id, decision: "reject", reason };
-    }
-    if (answer === "a") {
-      const typed = (await rl.question(`   tags [${c.kinds.join(",")}] › `)).trim();
-      const tags = (typed ? typed.split(/[\s,]+/) : c.kinds).filter((t): t is Kind => (KINDS as readonly string[]).includes(t));
-      if (!tags.length) {
-        console.log(`   tags must be from: ${KINDS.join(", ")}`);
-        continue;
-      }
-      const note = (await rl.question("   note (optional) › ")).trim() || null;
-      return { id: c.id, decision: "accept", tags, note };
-    }
-  }
 }
 
 async function main(): Promise<void> {

@@ -3,6 +3,7 @@
  * enrich step (drive times, surface from OpenStreetMap, photos) fill the rest before promote.
  */
 import { z } from "zod";
+import type { Enrichment, Photo } from "./enrich";
 import type { Run } from "./origin";
 
 export const KINDS = ["lake", "woods", "town", "history"] as const;
@@ -42,15 +43,19 @@ export const Candidate = z
 
 export type Candidate = z.infer<typeof Candidate>;
 
+/** A submitted candidate plus what open data says about getting there. */
+export type Scouted = Candidate & { enrichment: Enrichment };
+
 export type Decision =
-  | { id: string; decision: "accept"; tags: (typeof KINDS)[number][]; note: string | null }
+  | { id: string; decision: "accept"; tags: (typeof KINDS)[number][]; note: string | null; photo: number | null }
   | { id: string; decision: "reject"; reason: string }
   | { id: string; decision: "skip" };
 
 /** The `candidates` collection document. Rejected ones stay so later runs don't suggest them again. */
-export type CandidateDoc = Candidate & {
+export type CandidateDoc = Scouted & {
   status: "accepted" | "rejected";
   tags?: (typeof KINDS)[number][];
+  photo?: Photo | null;
   reviewNote?: string | null;
   rejectReason?: string;
   scoutedFrom: Run;
