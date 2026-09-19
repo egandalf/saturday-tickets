@@ -4,20 +4,21 @@
  *   npm run scout:upsert -- scout/data/new.json             dry run: validate, show embed text
  *   npm run scout:upsert -- scout/data/new.json --write     embed and write new ids
  *   npm run scout:upsert -- scout/data/new.json --write --replace   also overwrite existing ids
- *   --origin=lat,lng[,label] --radius=miles   measure from somewhere else (default 41144, 150 mi)
+ *   --origin=lat,lng[,label] --radius=miles   where this batch was scouted (default 41144, 150 mi)
  *   --collection=places_scratch   write somewhere other than the live places (for testing)
  *
- * The app reads milesFromHome and minutesOut as measured from 41144, so the live places
- * collection only takes runs from that origin.
+ * milesFromHome and minutesOut are always from 41144. A place scouted on vacation is kept;
+ * the deal leaves it out while it is past the radius or home after dusk.
  *
  * Tags stay signed in lib/places.ts. An untagged place is stored but only deals with no mood.
  */
 import { readFile } from "node:fs/promises";
 import { signedTags } from "../lib/places";
 import { withDb } from "./lib/atlas";
-import { DEFAULT_RUN, isAppHome, parseOrigin, parseRadius, type Run } from "./lib/origin";
+import { APP_HOME, DEFAULT_RUN, parseOrigin, parseRadius, type Run } from "./lib/origin";
 import {
   backAt,
+  duskOk,
   EMBED_MODEL,
   embedText,
   formatIssues,
@@ -43,9 +44,6 @@ function parseArgs(argv: string[]): Args {
     radiusMiles: radiusText ? parseRadius(radiusText) : DEFAULT_RUN.radiusMiles,
   };
   if (!file) throw new Error("usage: scout:upsert -- <places.json> [--write] [--replace] [--origin=lat,lng] [--radius=mi]");
-  if (collection === "places" && !isAppHome(run.origin)) {
-    throw new Error(`the live places collection is measured from 41144; use --collection= for ${run.origin.label}`);
-  }
   return { file, write: flags.has("--write"), replace: flags.has("--replace"), collection, run };
 }
 
@@ -83,8 +81,8 @@ async function main(): Promise<void> {
     valid.push(parsed.data);
   }
 
-  const dusk = longestSaturday(args.run.origin);
-  console.log(`from ${args.run.origin.label} (${args.run.origin.lat},${args.run.origin.lng}) within ${args.run.radiusMiles} mi\n`);
+  const dusk = longestSaturday(APP_HOME);
+  console.log(`scouted from ${args.run.origin.label} (${args.run.origin.lat},${args.run.origin.lng}) within ${args.run.radiusMiles} mi\n`);
   await withDb(async (db) => {
     const coll = db.collection(args.collection);
     const ids = valid.map((p) => p.id);
@@ -98,7 +96,8 @@ async function main(): Promise<void> {
       const action = exists && !args.replace ? "skip (exists; --replace to overwrite)" : exists ? "replace" : "insert";
       const tags = signedTags(p.id);
       console.log(`✓ ${p.id}  ${action}`);
-      console.log(`    ${p.title} · ${p.surface} · ${p.milesFromHome} mi · home ${clock(backAt(p))} (latest dusk ${dusk.clock} on ${dusk.date})`);
+      const reach = duskOk(p) ? `home ${clock(backAt(p))}` : `home ${clock(backAt(p))}, after dusk all year: kept, never dealt from ${APP_HOME.label}`;
+      console.log(`    ${p.title} · ${p.surface} · ${p.milesFromHome} mi from home · ${reach} (latest dusk ${dusk.clock})`);
       console.log(`    tags: ${tags.length ? tags.join(", ") : "none signed; add the id to lib/places.ts"}`);
       if (p.waterCrossingAssessment) printCrossing(p.waterCrossingAssessment);
       console.log(`    embed: ${embedText(p)}`);
@@ -118,8 +117,8 @@ async function main(): Promise<void> {
       toWrite.map((p, i) => {
         const doc: PlaceDoc = {
           ...p,
-          duskOk: true,
-          measuredFrom: args.run.origin,
+          duskOk: duskOk(p),
+          scoutedFrom: args.run,
           embedding: vecs[i],
           embeddingModel: EMBED_MODEL,
           embeddingDims: vecs[i].length,

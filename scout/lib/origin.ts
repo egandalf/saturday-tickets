@@ -1,4 +1,7 @@
-/** Where a scout run measures from, and how far it looks. Defaults match the app's home and radius. */
+/**
+ * Where a scout run looks: a center and radius for discovery (home, a vacation base, a
+ * contributor's town). Travel fields on a place are always from the app's home.
+ */
 import { HOME_COORDS } from "../../lib/sun";
 
 export type Origin = { label: string; lat: number; lng: number };
@@ -25,10 +28,6 @@ export function parseRadius(value: string): number {
   const miles = Number(value);
   if (!Number.isFinite(miles) || miles <= 0 || miles > 500) throw new Error(`radius must be 1-500 miles, got "${value}"`);
   return miles;
-}
-
-export function isAppHome(origin: Origin): boolean {
-  return straightMiles(origin, APP_HOME) < 1;
 }
 
 /** Great-circle miles. Road miles can only be longer, so this catches a made-up milesFromHome. */

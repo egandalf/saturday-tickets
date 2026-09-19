@@ -1,7 +1,7 @@
 /** The Atlas `places` document as scout writes it. Hard filters are refused here, not stored as badges. */
 import { z } from "zod";
 import { saturdaySunset, type SaturdaySunset } from "../../lib/sun";
-import { straightMiles, type Origin, type Run } from "./origin";
+import { APP_HOME, straightMiles, type Origin, type Run } from "./origin";
 
 export const SATURDAY_START = 10 * 60;
 export const EMBED_MODEL = "voyage-3-lite";
@@ -64,7 +64,10 @@ const PlaceFields = z
 
 export type PlaceInput = z.infer<typeof PlaceFields>;
 
-/** milesFromHome and minutesOut are measured from the run's origin. */
+/**
+ * Acceptance checks the place itself. The run's origin and radius only bound where scout looked;
+ * milesFromHome and minutesOut are from the app's home, and the deal decides reach and dusk.
+ */
 export function placeInput(run: Run) {
   return PlaceFields.superRefine((p, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
@@ -77,27 +80,23 @@ export function placeInput(run: Run) {
       issue("waterCrossing", "has an assessment but waterCrossing is false");
     }
 
-    if (p.milesFromHome > run.radiusMiles) {
-      issue("milesFromHome", `${p.milesFromHome} mi is past the ${run.radiusMiles} mi radius from ${run.origin.label}`);
+    const fromOrigin = straightMiles(run.origin, latLng(p.location));
+    if (fromOrigin > run.radiusMiles) {
+      issue("location", `${fromOrigin.toFixed(0)} mi from ${run.origin.label}, past this run's ${run.radiusMiles} mi radius`);
     }
-    const straight = straightMiles(run.origin, latLng(p.location));
-    if (p.milesFromHome < straight - 1) {
+    const fromHome = straightMiles(APP_HOME, latLng(p.location));
+    if (p.milesFromHome < fromHome - 1) {
       issue(
         "milesFromHome",
-        `${p.milesFromHome} road miles is shorter than the ${straight.toFixed(0)} straight-line miles from ${run.origin.label}`,
+        `${p.milesFromHome} road miles is shorter than the ${fromHome.toFixed(0)} straight-line miles from ${APP_HOME.label}`,
       );
-    }
-
-    const dusk = longestSaturday(run.origin);
-    if (backAt(p) > dusk.minutes) {
-      issue("minutesOut", `home after dusk even on the longest Saturday (${dusk.date}, ${dusk.clock})`);
     }
   });
 }
 
 export type PlaceDoc = PlaceInput & {
-  duskOk: true;
-  measuredFrom: Origin;
+  duskOk: boolean;
+  scoutedFrom: Run;
   embedding: number[];
   embeddingModel: typeof EMBED_MODEL;
   embeddingDims: number;
@@ -111,9 +110,13 @@ export function backAt(p: Pick<PlaceInput, "minutesOut" | "onSiteMinutes">): num
 const longest = new Map<string, SaturdaySunset>();
 
 /**
- * duskOk means back before dusk on at least one Saturday of the year. The live deal still
- * checks the coming Saturday, so winter drops the long drives (Jenny Wiley, Ash Cave, Natural Bridge).
+ * duskOk: home before dusk on at least one Saturday of the year. The live deal still checks
+ * the coming Saturday, so winter drops the long drives (Jenny Wiley, Ash Cave, Natural Bridge).
  */
+export function duskOk(p: Pick<PlaceInput, "minutesOut" | "onSiteMinutes">): boolean {
+  return backAt(p) <= longestSaturday(APP_HOME).minutes;
+}
+
 export function longestSaturday(origin: Origin): SaturdaySunset {
   const key = `${origin.lat},${origin.lng}`;
   let best = longest.get(key);
