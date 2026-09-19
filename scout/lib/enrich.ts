@@ -42,7 +42,7 @@ export type RouteFacts = {
 };
 
 export type ParkingFacts = {
-  lots: { meters: number; name?: string; surface?: string; access?: string }[];
+  lots: { meters: number; lat: number; lng: number; name?: string; surface?: string; access?: string }[];
   turningCircles: number;
 };
 
@@ -168,16 +168,24 @@ export async function routeFromHome(to: LatLng): Promise<RouteFacts> {
   return facts;
 }
 
+async function overpass(query: string): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ data: query }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const text = await res.text();
+    if (res.ok && !text.startsWith("<")) return text;
+    if (attempt >= 2) throw new Error(`overpass ${res.status}: busy or unavailable`);
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  }
+}
+
 export async function parkingNear(at: LatLng, radiusMeters = 400): Promise<ParkingFacts> {
   const query = `[out:json][timeout:20];(nwr(around:${radiusMeters},${at.lat},${at.lng})[amenity=parking];node(around:${radiusMeters},${at.lat},${at.lng})[highway=turning_circle];);out center tags;`;
-  const res = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ data: query }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  const text = await res.text();
-  if (!res.ok || text.startsWith("<")) throw new Error(`overpass ${res.status}: busy or unavailable`);
+  const text = await overpass(query);
   const data = JSON.parse(text) as {
     elements: { lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[];
   };
@@ -192,6 +200,8 @@ export async function parkingNear(at: LatLng, radiusMeters = 400): Promise<Parki
     if (!p) continue;
     lots.push({
       meters: Math.round(straightMiles(at, { lat: p.lat, lng: p.lon }) * METERS_PER_MILE),
+      lat: round(p.lat, 6),
+      lng: round(p.lon, 6),
       name: e.tags?.name,
       surface: e.tags?.surface,
       access: e.tags?.access,

@@ -19,16 +19,14 @@ import { APP_HOME, DEFAULT_RUN, parseOrigin, parseRadius, type Run } from "./lib
 import {
   backAt,
   duskOk,
-  EMBED_MODEL,
   embedText,
   formatIssues,
   longestSaturday,
   placeInput,
-  type PlaceDoc,
   type PlaceInput,
   type WaterCrossingAssessment,
 } from "./lib/place-doc";
-import { embedDocuments } from "./lib/voyage";
+import { upsertPlaces } from "./lib/write-places";
 
 type Args = { file: string; write: boolean; replace: boolean; collection: string; run: Run };
 
@@ -111,30 +109,8 @@ async function main(): Promise<void> {
     }
     if (!toWrite.length) return;
 
-    const vecs = await embedDocuments(toWrite.map(embedText));
-    const now = new Date();
-    const result = await coll.bulkWrite(
-      toWrite.map((p, i) => {
-        const doc: PlaceDoc = {
-          ...p,
-          duskOk: duskOk(p),
-          scoutedFrom: args.run,
-          embedding: vecs[i],
-          embeddingModel: EMBED_MODEL,
-          embeddingDims: vecs[i].length,
-        };
-        const absent = (["note", "waterCrossingAssessment"] as const).filter((k) => p[k] === undefined);
-        const unset = absent.length ? { $unset: Object.fromEntries(absent.map((k) => [k, ""])) } : {};
-        return {
-          updateOne: {
-            filter: { id: p.id },
-            update: { $set: { ...doc, updatedAt: now }, $setOnInsert: { createdAt: now }, ...unset },
-            upsert: true,
-          },
-        };
-      }),
-    );
-    console.log(`wrote: ${result.upsertedCount} inserted, ${result.modifiedCount} replaced (${vecs[0].length} dims)`);
+    const result = await upsertPlaces(coll, toWrite, args.run);
+    console.log(`wrote: ${result.inserted} inserted, ${result.replaced} replaced (${result.dims} dims)`);
   });
 
   if (invalid) process.exitCode = 1;

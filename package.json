@@ -8,13 +8,16 @@
     "scout:export": "tsx --env-file=.env.local scout/export-places.ts",
     "scout:upsert": "tsx --env-file=.env.local scout/upsert-place.ts",
     "scout:reembed": "tsx --env-file=.env.local scout/reembed-places.ts",
-    "scout": "tsx --env-file=.env.local scout/run.ts"
+    "scout": "tsx --env-file=.env.local scout/run.ts",
+    "scout:locate": "tsx --env-file=.env.local scout/locate-places.ts",
+    "scout:promote": "tsx --env-file=.env.local scout/promote.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
     "@langchain/core": "^1.2.11",
     "@langchain/langgraph": "^1.4.16",
     "@langchain/langgraph-checkpoint-mongodb": "^1.4.1",
+    "@vercel/blob": "^2.8.0",
     "mongodb": "^6",
     "next": "^15",
     "react": "^19",
